@@ -4,7 +4,7 @@ import com.bamboo.postService.dto.blog.BlogTagView;
 import com.bamboo.postService.dto.doc.DocHomeDto;
 import com.bamboo.postService.entity.Docs;
 
-import feign.Param;
+import org.springframework.data.repository.query.Param;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -36,4 +36,22 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                     order by d.createdAt desc
             """)
     List<DocHomeDto> findAllCoverDocs(Pageable pageable);
+
+    @Query(
+            """
+                select
+                     d.id as id ,
+                     d.title as title,
+                     d.coverUrl as coverUrl ,
+                     d.description as description ,
+                     d.createdAt as createdAt
+                    from Docs d
+                    where d.authorSnapshot.id = :authorId
+                      and d.createdAt < :cursor
+                    order by d.createdAt desc
+            """)
+    List<DocHomeDto> findForAuthor(
+            @Param("authorId") UUID authorId,
+            @Param("cursor") java.time.Instant cursor,
+            Pageable pageable);
 }

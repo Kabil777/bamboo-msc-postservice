@@ -5,6 +5,7 @@ import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.doc.DocCreateRequestDto;
 import com.bamboo.postService.dto.doc.DocHomeDto;
 import com.bamboo.postService.dto.doc.DocResponse;
+import com.bamboo.postService.dto.doc.DocsContentRequest;
 import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.service.DocsService;
 
@@ -72,6 +73,20 @@ public class DocsController {
 
         AuthorSnapshot snapshot = new AuthorSnapshot(userId, name, handle, avatarUrl);
         return docsService.savePost(document, snapshot);
+    }
+
+    @PostMapping("/{docId}/content")
+    public ResponseEntity<CommonResponse<String>> saveDocsContent(
+            @PathVariable("docId") String docId,
+            @RequestBody DocsContentRequest request) {
+        return docsService.saveDocsContent(UUID.fromString(docId), request);
+    }
+
+    @PostMapping("/{docId}/content/save")
+    public ResponseEntity<CommonResponse<String>> saveDocsContentUpload(
+            @PathVariable("docId") String docId,
+            @RequestBody DocsContentRequest request) {
+        return docsService.saveDocsContent(UUID.fromString(docId), request);
     }
 
     @GetMapping("/{docId}/{pageId}")

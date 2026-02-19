@@ -10,12 +10,14 @@
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/ApiError.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/BlogMemberRoleResponse.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/CommonResponse.java
+/home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/DocsMemberRoleResponse.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/RoleResponse.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/UpdateRoleRequest.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/common/response/UpsertRoleRequest.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/controller/BlogController.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/controller/BlogRoleController.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/controller/DocsController.java
+/home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/controller/DocsRoleController.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/controller/InternalServiceController.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/blog/BlogDetailsDto.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/blog/BlogPageBase.java
@@ -29,8 +31,10 @@
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocCreateRequestDto.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocCursorResponse.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocHomeDto.java
+/home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocPageContentRequest.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocPageRequestNode.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocResponse.java
+/home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/doc/DocsContentRequest.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/dto/feign/UserMetaDto.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/entity/AuthorSnapshot.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/entity/Blog.java
@@ -57,4 +61,5 @@
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/service/BlogRoleService.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/service/BlogService.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/service/CommonServices.java
+/home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/service/DocsRoleService.java
 /home/kabil/personal/projects/msc/bamboo/postService/src/main/java/com/bamboo/postService/service/DocsService.java
