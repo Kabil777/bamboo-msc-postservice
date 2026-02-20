@@ -1,3 +1,6 @@
 package com.bamboo.postService.dto.blog;
 
-public record BlogPageDto(String content) {}
+import com.bamboo.postService.common.enums.PostStatus;
+import com.bamboo.postService.common.enums.Visibility;
+
+public record BlogPageDto(String content, Visibility visibility, PostStatus status) {}

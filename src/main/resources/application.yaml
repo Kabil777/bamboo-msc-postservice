@@ -30,3 +30,7 @@ server:
 user:
   service:
     url: ${USER_SERVICE_URL:http://localhost:8091}
+s3:
+  bucket:
+    name: spring-uploads
+    baseUrl: http://localhost:8443

@@ -41,7 +41,9 @@ public class PostServiceHelper {
                                                         b.getDescription(),
                                                         b.getAuthorId(),
                                                         b.getAuthorHandle(),
-                                                        b.getCreatedAt()))
+                                                        b.getCreatedAt(),
+                                                        b.getVisibility(),
+                                                        b.getStatus()))
                                 .toList();
                     };
 }

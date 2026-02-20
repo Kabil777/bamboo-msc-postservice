@@ -2,6 +2,7 @@ package com.bamboo.postService.repository;
 
 import com.bamboo.postService.dto.blog.BlogTagView;
 import com.bamboo.postService.dto.doc.DocHomeDto;
+import com.bamboo.postService.common.enums.Visibility;
 import com.bamboo.postService.entity.Docs;
 
 import org.springframework.data.repository.query.Param;
@@ -31,11 +32,15 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.title as title,
                      d.coverUrl as coverUrl ,
                      d.description as description ,
-                     d.createdAt as createdAt
+                     d.createdAt as createdAt,
+                     d.visibility as visibility,
+                     d.status as status
                     from Docs d
+                    where d.visibility = :visibility
                     order by d.createdAt desc
             """)
-    List<DocHomeDto> findAllCoverDocs(Pageable pageable);
+    List<DocHomeDto> findAllCoverDocs(
+            @Param("visibility") Visibility visibility, Pageable pageable);
 
     @Query(
             """
@@ -44,7 +49,9 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.title as title,
                      d.coverUrl as coverUrl ,
                      d.description as description ,
-                     d.createdAt as createdAt
+                     d.createdAt as createdAt,
+                     d.visibility as visibility,
+                     d.status as status
                     from Docs d
                     where d.authorSnapshot.id = :authorId
                       and d.createdAt < :cursor
@@ -52,6 +59,28 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
             """)
     List<DocHomeDto> findForAuthor(
             @Param("authorId") UUID authorId,
+            @Param("cursor") java.time.Instant cursor,
+            Pageable pageable);
+
+    @Query(
+            """
+                select
+                     d.id as id ,
+                     d.title as title,
+                     d.coverUrl as coverUrl ,
+                     d.description as description ,
+                     d.createdAt as createdAt,
+                     d.visibility as visibility,
+                     d.status as status
+                    from Docs d
+                    where d.authorSnapshot.id = :authorId
+                      and d.visibility = :visibility
+                      and d.createdAt < :cursor
+                    order by d.createdAt desc
+            """)
+    List<DocHomeDto> findForAuthorWithVisibility(
+            @Param("authorId") UUID authorId,
+            @Param("visibility") Visibility visibility,
             @Param("cursor") java.time.Instant cursor,
             Pageable pageable);
 }

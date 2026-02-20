@@ -12,6 +12,7 @@ import com.bamboo.postService.dto.blog.BlogPagesDto;
 import com.bamboo.postService.dto.blog.BlogTagView;
 import com.bamboo.postService.dto.blog.CursorResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
+import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.entity.Blog;
 import com.bamboo.postService.entity.BlogContent;
@@ -34,6 +35,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -63,8 +65,22 @@ public class BlogService extends BaseService {
     }
 
     @Transactional
-    public ResponseEntity<CommonResponse<String>> saveContent(UUID blogId, String content) {
+    public ResponseEntity<CommonResponse<String>> saveContent(
+            UUID blogId, String content, Visibility visibility, PostStatus status) {
         blogContentRepository.upsertContent(blogId, content);
+        Blog blog =
+                blogRepository
+                        .findById(blogId)
+                        .orElseThrow(() -> new EntityNotFoundException("Blog does not found !"));
+        if (visibility != null) {
+            blog.setVisibility(visibility);
+        }
+        if (status != null) {
+            blog.setStatus(status);
+        } else if (visibility != null) {
+            blog.setStatus(PostStatus.PUBLISHED);
+        }
+        blogRepository.save(blog);
         return buildResponse(HttpStatus.CREATED, "ok");
     }
 
@@ -171,11 +187,15 @@ public class BlogService extends BaseService {
     }
 
     @Transactional()
-    public ResponseEntity<BlogDetailsDto> getBlogById(UUID id) {
+    public ResponseEntity<BlogDetailsDto> getBlogById(UUID id, UUID userId) {
         Blog blog =
                 blogRepository
                         .findBlogWithContent(id)
                         .orElseThrow(() -> new EntityNotFoundException("Blog does not found"));
+
+        if (!hasViewAccess(blog, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
 
         if (blog.getContent() == null) {
             throw new EntityNotFoundException("Blog content not found");
@@ -191,6 +211,22 @@ public class BlogService extends BaseService {
                         blog.getCreatedAt(),
                         tags,
                         blog.getAuthorSnapshot()));
+    }
+
+    private boolean hasViewAccess(Blog blog, UUID userId) {
+        if (blog.getStatus() != PostStatus.PUBLISHED) {
+            return false;
+        }
+
+        if (blog.getVisibility() == Visibility.PUBLIC) {
+            return true;
+        }
+
+        if (userId == null) {
+            return false;
+        }
+
+        return blogRoleRepository.findByBlogIdAndUserId(blog.getId(), userId).isPresent();
     }
 
     public ResponseEntity<CursorResponse> getByUser(
@@ -264,5 +300,33 @@ public class BlogService extends BaseService {
                         role.getRole() == Roles.READER ? true : false,
                         HttpStatus.OK,
                         "has reader access to this document"));
+    }
+
+    @Transactional
+    public ResponseEntity<CommonResponse<String>> updateVisibility(
+            UUID blogId, UUID userId, VisibilityUpdateRequest request) {
+        BlogMember role =
+                blogRoleRepository
+                        .findByBlogIdAndUserId(blogId, userId)
+                        .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+
+        if (role.getRole() != Roles.OWNER) {
+            throw new RoleNotFoundException("Unauthorized");
+        }
+
+        Blog blog =
+                blogRepository
+                        .findById(blogId)
+                        .orElseThrow(() -> new EntityNotFoundException("Blog does not found !"));
+
+        if (request.visibility() != null) {
+            blog.setVisibility(request.visibility());
+        }
+        if (request.status() != null) {
+            blog.setStatus(request.status());
+        }
+
+        blogRepository.save(blog);
+        return buildResponse(HttpStatus.OK, "ok");
     }
 }

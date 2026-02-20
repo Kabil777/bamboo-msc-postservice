@@ -6,6 +6,7 @@ import com.bamboo.postService.dto.blog.BlogDetailsDto;
 import com.bamboo.postService.dto.blog.BlogPageDto;
 import com.bamboo.postService.dto.blog.CursorResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
+import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.service.BlogService;
 
@@ -44,7 +45,19 @@ public class BlogController {
     public ResponseEntity<CommonResponse<String>> saveContent(
             @PathVariable UUID blogId, @RequestBody BlogPageDto blogPageDto) {
         log.info("data: {}", blogPageDto.content());
-        return blogService.saveContent(blogId, blogPageDto.content());
+        return blogService.saveContent(
+                blogId,
+                blogPageDto.content(),
+                blogPageDto.visibility(),
+                blogPageDto.status());
+    }
+
+    @PostMapping("/{blogId}/visibility")
+    public ResponseEntity<CommonResponse<String>> updateVisibility(
+            @PathVariable UUID blogId,
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestBody VisibilityUpdateRequest request) {
+        return blogService.updateVisibility(blogId, userId, request);
     }
 
     @PostMapping("/meta")
@@ -70,8 +83,10 @@ public class BlogController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<BlogDetailsDto> getBlogContent(@PathVariable UUID id) {
-        return blogService.getBlogById(id);
+    public ResponseEntity<BlogDetailsDto> getBlogContent(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
+        return blogService.getBlogById(id, userId);
     }
 
     @GetMapping("/tag/{tag}")

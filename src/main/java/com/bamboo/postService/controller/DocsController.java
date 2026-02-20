@@ -1,11 +1,14 @@
 package com.bamboo.postService.controller;
 
+import com.bamboo.postService.common.enums.Visibility;
 import com.bamboo.postService.common.response.CommonResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.doc.DocCreateRequestDto;
+import com.bamboo.postService.dto.doc.DocCursorResponse;
 import com.bamboo.postService.dto.doc.DocHomeDto;
 import com.bamboo.postService.dto.doc.DocResponse;
 import com.bamboo.postService.dto.doc.DocsContentRequest;
+import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.service.DocsService;
 
@@ -20,8 +23,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -57,8 +62,21 @@ public class DocsController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DocResponse> getById(@PathVariable("id") String id) {
-        return docsService.getDocAndContent(UUID.fromString(id));
+    public ResponseEntity<DocResponse> getById(
+            @PathVariable("id") String id,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
+        return docsService.getDocAndContent(UUID.fromString(id), userId);
+    }
+
+    @GetMapping("/user/{id}")
+    public ResponseEntity<DocCursorResponse> getDocsByUser(
+            @PathVariable UUID id,
+            @RequestParam(required = false) Instant cursor,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+                    Pageable pageable,
+            @RequestParam(required = false) Visibility visibility) {
+        if (cursor == null) cursor = Instant.now();
+        return docsService.getByUser(id, cursor, pageable, visibility);
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -77,21 +95,30 @@ public class DocsController {
 
     @PostMapping("/{docId}/content")
     public ResponseEntity<CommonResponse<String>> saveDocsContent(
-            @PathVariable("docId") String docId,
-            @RequestBody DocsContentRequest request) {
+            @PathVariable("docId") String docId, @RequestBody DocsContentRequest request) {
         return docsService.saveDocsContent(UUID.fromString(docId), request);
+    }
+
+    @PostMapping("/{docId}/visibility")
+    public ResponseEntity<CommonResponse<String>> updateVisibility(
+            @PathVariable("docId") String docId,
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestBody VisibilityUpdateRequest request) {
+        return docsService.updateVisibility(UUID.fromString(docId), userId, request);
     }
 
     @PostMapping("/{docId}/content/save")
     public ResponseEntity<CommonResponse<String>> saveDocsContentUpload(
-            @PathVariable("docId") String docId,
-            @RequestBody DocsContentRequest request) {
+            @PathVariable("docId") String docId, @RequestBody DocsContentRequest request) {
         return docsService.saveDocsContent(UUID.fromString(docId), request);
     }
 
     @GetMapping("/{docId}/{pageId}")
     public ResponseEntity<CommonResponse<String>> getPageContent(
-            @PathVariable("docId") String docId, @PathVariable("pageId") String pageId) {
-        return docsService.getPageWithId(UUID.fromString(pageId), UUID.fromString(docId));
+            @PathVariable("docId") String docId,
+            @PathVariable("pageId") String pageId,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
+        return docsService.getPageWithId(
+                UUID.fromString(pageId), UUID.fromString(docId), userId);
     }
 }

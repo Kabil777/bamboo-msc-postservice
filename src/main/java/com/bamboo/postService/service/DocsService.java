@@ -8,6 +8,7 @@ import com.bamboo.postService.common.helper.DocsTrasformer.TransformResult;
 import com.bamboo.postService.common.response.CommonResponse;
 import com.bamboo.postService.common.response.RoleResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
+import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.dto.doc.DocCreateRequestDto;
 import com.bamboo.postService.dto.doc.DocHomeDto;
 import com.bamboo.postService.dto.doc.DocPageContentRequest;
@@ -125,7 +126,7 @@ public class DocsService extends BaseService {
     }
 
     @Transactional
-    public ResponseEntity<DocResponse> getDocAndContent(UUID id) {
+    public ResponseEntity<DocResponse> getDocAndContent(UUID id, UUID userId) {
         Docs docs =
                 docsRepository
                         .findById(id)
@@ -133,6 +134,10 @@ public class DocsService extends BaseService {
                                 () ->
                                         new EntityNotFoundException(
                                                 "Document with current Id not found"));
+
+        if (!hasViewAccess(docs, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
 
         Set<String> tags = docs.getTags().stream().map(Tags::getTag).collect(Collectors.toSet());
 
@@ -151,11 +156,24 @@ public class DocsService extends BaseService {
     }
 
     @Transactional
-    public ResponseEntity<CommonResponse<String>> getPageWithId(UUID pageId, UUID docId) {
+    public ResponseEntity<CommonResponse<String>> getPageWithId(
+            UUID pageId, UUID docId, UUID userId) {
         Pages page =
                 pageRepository
                         .findById(pageId)
                         .orElseThrow(() -> new EntityNotFoundException("Page Not Found"));
+
+        Docs docs =
+                docsRepository
+                        .findById(docId)
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Document with current Id not found"));
+
+        if (!hasViewAccess(docs, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
 
         if (!page.getDocId().equals(docId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Page Signature Mismatch");
@@ -175,6 +193,14 @@ public class DocsService extends BaseService {
                                                 "Document with current Id not found"));
 
         docs.setTree(request.tree());
+        if (request.visibility() != null) {
+            docs.setVisibility(request.visibility());
+        }
+        if (request.status() != null) {
+            docs.setStatus(request.status());
+        } else if (request.visibility() != null) {
+            docs.setStatus(PostStatus.PUBLISHED);
+        }
         docsRepository.save(docs);
 
         if (request.pages() != null && !request.pages().isEmpty()) {
@@ -205,6 +231,37 @@ public class DocsService extends BaseService {
                         "has reader access to this document"));
     }
 
+    @Transactional
+    public ResponseEntity<CommonResponse<String>> updateVisibility(
+            UUID docsId, UUID userId, VisibilityUpdateRequest request) {
+        DocsMember role =
+                docsRoleRepository
+                        .findByDocsIdAndUserId(docsId, userId)
+                        .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+
+        if (role.getRole() != Roles.OWNER) {
+            throw new RoleNotFoundException("Unauthorized");
+        }
+
+        Docs docs =
+                docsRepository
+                        .findById(docsId)
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Document with current Id not found"));
+
+        if (request.visibility() != null) {
+            docs.setVisibility(request.visibility());
+        }
+        if (request.status() != null) {
+            docs.setStatus(request.status());
+        }
+
+        docsRepository.save(docs);
+        return buildResponse(HttpStatus.OK, "ok");
+    }
+
     private DocsMember buildOwnerRole(UUID docsId, AuthorSnapshot snapshot) {
         DocsMember member = new DocsMember();
         member.setDocsId(docsId);
@@ -217,9 +274,25 @@ public class DocsService extends BaseService {
         return member;
     }
 
+    private boolean hasViewAccess(Docs docs, UUID userId) {
+        if (docs.getStatus() != PostStatus.PUBLISHED) {
+            return false;
+        }
+
+        if (docs.getVisibility() == Visibility.PUBLIC) {
+            return true;
+        }
+
+        if (userId == null) {
+            return false;
+        }
+
+        return docsRoleRepository.findByDocsIdAndUserId(docs.getId(), userId).isPresent();
+    }
+
     @Transactional
     public ResponseEntity<List<DocHomeDto>> getDocForHome(Pageable pageable) {
-        List<DocHomeDto> coverDocs = docsRepository.findAllCoverDocs(pageable);
+        List<DocHomeDto> coverDocs = docsRepository.findAllCoverDocs(Visibility.PUBLIC, pageable);
         return ResponseEntity.ok(coverDocs);
     }
 
@@ -230,6 +303,28 @@ public class DocsService extends BaseService {
                 PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
 
         List<DocHomeDto> base = docsRepository.findForAuthor(id, cursor, limitPlusOne);
+
+        boolean hasNext = base.size() > pageSize;
+        if (hasNext) {
+            base = base.subList(0, pageSize);
+        }
+
+        Instant nextCursor = hasNext ? base.get(base.size() - 1).createdAt() : null;
+        return ResponseEntity.ok(new DocCursorResponse(base, hasNext, nextCursor));
+    }
+
+    public ResponseEntity<DocCursorResponse> getByUser(
+            UUID id, Instant cursor, Pageable pageable, Visibility visibility) {
+        int pageSize = pageable.getPageSize();
+        Pageable limitPlusOne =
+                PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
+
+        if (visibility == null) {
+            visibility = Visibility.PUBLIC;
+        }
+
+        List<DocHomeDto> base =
+                docsRepository.findForAuthorWithVisibility(id, visibility, cursor, limitPlusOne);
 
         boolean hasNext = base.size() > pageSize;
         if (hasNext) {
