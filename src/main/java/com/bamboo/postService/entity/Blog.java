@@ -56,7 +56,7 @@ public class Blog {
     @Column(nullable = false)
     private String coverUrl;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
     @OneToOne(

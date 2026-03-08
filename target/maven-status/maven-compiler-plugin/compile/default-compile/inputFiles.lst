@@ -21,6 +21,7 @@
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/controller/DocsRoleController.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/controller/InternalServiceController.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/controller/UploadController.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/BlogCollaboratorDto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/BlogDetailsDto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/BlogPageBase.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/BlogPageContent.java

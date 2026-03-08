@@ -26,9 +26,12 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
                        b.coverUrl AS coverUrl,
                        b.description AS description,
                        b.createdAt AS createdAt,
-            b.authorSnapshot.id AS authorId,
-            b.visibility AS visibility,
-            b.status AS status
+                       b.authorSnapshot.id AS authorId,
+                       b.authorSnapshot.name AS authorName,
+                       b.authorSnapshot.handle AS authorHandle,
+                       b.authorSnapshot.avatarUrl AS authorAvatar,
+                       b.visibility AS visibility,
+                       b.status AS status
                 FROM Blog b
                 WHERE b.visibility = :visibility
                 order by b.createdAt desc
@@ -71,7 +74,9 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
         b.description AS description,
         b.createdAt AS createdAt,
         b.authorSnapshot.id AS authorId,
+        b.authorSnapshot.name AS authorName,
         b.authorSnapshot.handle AS authorHandle,
+        b.authorSnapshot.avatarUrl AS authorAvatar,
         b.visibility AS visibility,
         b.status AS status
     FROM Blog b
@@ -83,18 +88,44 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
             @Param("authorId") UUID authorId, @Param("cursor") Instant cursor, Pageable pageable);
 
     @Query(
+"""
+    SELECT
+        b.id AS id,
+        b.title AS title,
+        b.coverUrl AS coverUrl,
+        b.description AS description,
+        b.createdAt AS createdAt,
+        b.authorSnapshot.id AS authorId,
+        b.authorSnapshot.name AS authorName,
+        b.authorSnapshot.handle AS authorHandle,
+        b.authorSnapshot.avatarUrl AS authorAvatar,
+        b.visibility AS visibility,
+        b.status AS status
+    FROM Blog b
+    JOIN BlogMember bm ON bm.blogId = b.id
+    WHERE bm.userId = :userId
+      AND b.createdAt < :cursor
+    ORDER BY b.createdAt DESC
+""")
+    List<BlogPageBase> findForMember(
+            @Param("userId") UUID userId, @Param("cursor") Instant cursor, Pageable pageable);
+
+    @Query(
             """
                      SELECT b.id AS id,
-                        b.title AS title,
-                     b.coverUrl AS coverUrl,
-                     b.description AS description,
-                     b.createdAt AS createdAt,
-            b.authorSnapshot.id AS authorId,
-            b.visibility AS visibility,
-            b.status AS status
-                     FROM Blog b
-                     WHERE b.visibility = :visibility
-                     AND  b.createdAt < :cursor
+        b.title AS title,
+        b.coverUrl AS coverUrl,
+        b.description AS description,
+        b.createdAt AS createdAt,
+        b.authorSnapshot.id AS authorId,
+        b.authorSnapshot.name AS authorName,
+        b.authorSnapshot.handle AS authorHandle,
+        b.authorSnapshot.avatarUrl AS authorAvatar,
+        b.visibility AS visibility,
+        b.status AS status
+    FROM Blog b
+    WHERE b.visibility = :visibility
+      AND  b.createdAt < :cursor
                      AND EXISTS (
                         SELECT 1 FROM b.tags t
                         WHERE t.tag = :tag
@@ -114,9 +145,12 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
                         b.coverUrl AS coverUrl,
                         b.description AS description,
                         b.createdAt AS createdAt,
-            b.authorSnapshot.id AS authorId,
-            b.visibility AS visibility,
-            b.status AS status
+                       b.authorSnapshot.id AS authorId,
+                       b.authorSnapshot.name AS authorName,
+                       b.authorSnapshot.handle AS authorHandle,
+                       b.authorSnapshot.avatarUrl AS authorAvatar,
+                       b.visibility AS visibility,
+                       b.status AS status
                 FROM Blog b
                 WHERE b.visibility = :visibility
                 AND b.createdAt < :cursor

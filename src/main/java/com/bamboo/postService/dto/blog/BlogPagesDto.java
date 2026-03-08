@@ -13,7 +13,10 @@ public record BlogPagesDto(
         String coverUrl,
         String description,
         UUID authorId,
+        String authorName,
         String handle,
+        String authorAvatarUrl,
         Instant createdAt,
         Visibility visibility,
-        PostStatus status) {}
+        PostStatus status,
+        List<BlogCollaboratorDto> collaborators) {}

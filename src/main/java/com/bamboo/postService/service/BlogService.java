@@ -8,17 +8,22 @@ import com.bamboo.postService.common.response.CommonResponse;
 import com.bamboo.postService.common.response.RoleResponse;
 import com.bamboo.postService.dto.blog.BlogDetailsDto;
 import com.bamboo.postService.dto.blog.BlogPageBase;
+import com.bamboo.postService.dto.blog.BlogCollaboratorDto;
 import com.bamboo.postService.dto.blog.BlogPagesDto;
 import com.bamboo.postService.dto.blog.BlogTagView;
 import com.bamboo.postService.dto.blog.CursorResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
+import com.bamboo.postService.dto.feign.UserMetaDto;
 import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.entity.Blog;
 import com.bamboo.postService.entity.BlogContent;
 import com.bamboo.postService.entity.BlogMember;
 import com.bamboo.postService.entity.Tags;
+import com.bamboo.postService.exception.AccessDeniedException;
 import com.bamboo.postService.exception.RoleNotFoundException;
+import com.bamboo.postService.exception.UserNotFoundException;
+import com.bamboo.postService.feign.UserServiceClient;
 import com.bamboo.postService.repository.BlogContentRepository;
 import com.bamboo.postService.repository.BlogRepository;
 import com.bamboo.postService.repository.BlogRoleRepository;
@@ -52,21 +57,27 @@ public class BlogService extends BaseService {
     private final TagRepository tagRepository;
     private final BlogContentRepository blogContentRepository;
     private final BlogRoleRepository blogRoleRepository;
+    private final UserServiceClient userServiceClient;
 
     public BlogService(
             BlogRepository blogRepository,
             TagRepository tagRepository,
             BlogContentRepository blogContentRepository,
-            BlogRoleRepository blogRoleRepository) {
+            BlogRoleRepository blogRoleRepository,
+            UserServiceClient userServiceClient) {
         this.blogRepository = blogRepository;
         this.tagRepository = tagRepository;
         this.blogContentRepository = blogContentRepository;
         this.blogRoleRepository = blogRoleRepository;
+        this.userServiceClient = userServiceClient;
     }
 
     @Transactional
     public ResponseEntity<CommonResponse<String>> saveContent(
-            UUID blogId, String content, Visibility visibility, PostStatus status) {
+            UUID userId, UUID blogId, String content, Visibility visibility, PostStatus status) {
+
+        assertCanEdit(blogId, userId);
+
         blogContentRepository.upsertContent(blogId, content);
         Blog blog =
                 blogRepository
@@ -86,7 +97,11 @@ public class BlogService extends BaseService {
 
     @Transactional
     public ResponseEntity<CommonResponse<Map<String, UUID>>> save(
-            MetaPostDto blogDto, AuthorSnapshot authorSnapshot) {
+            MetaPostDto blogDto, UUID userId) {
+        UserMetaDto actor = resolveUserById(userId);
+        AuthorSnapshot authorSnapshot =
+                new AuthorSnapshot(actor.id(), actor.name(), actor.handle(), actor.coverUrl());
+
         Blog blog =
                 Blog.builder()
                         .title(blogDto.title())
@@ -109,10 +124,18 @@ public class BlogService extends BaseService {
                         .userName(authorSnapshot.getName())
                         .userHandle(authorSnapshot.getHandle())
                         .userCoverUrl(authorSnapshot.getAvatarUrl())
-                        .userEmail(null)
+                        .userEmail(actor.email())
                         .role(Roles.OWNER)
                         .build());
         return buildResponse(HttpStatus.CREATED, Map.of("id", blog.getId()));
+    }
+
+    private UserMetaDto resolveUserById(UUID userId) {
+        try {
+            return userServiceClient.getUserById(userId);
+        } catch (Exception ex) {
+            throw new UserNotFoundException("User not found: " + userId);
+        }
     }
 
     /**
@@ -138,13 +161,28 @@ public class BlogService extends BaseService {
                 blogRepository.findTagsForBlogs(base.stream().map(BlogPageBase::getId).toList());
 
         Map<UUID, List<String>> tagMap = PostServiceHelper.tagMapper.apply(tags);
-        List<BlogPagesDto> pages = PostServiceHelper.pageMapper.apply(base, tagMap);
+        Map<UUID, List<BlogCollaboratorDto>> collaboratorMap = loadCollaborators(base);
+        List<BlogPagesDto> pages = PostServiceHelper.pageMapper(base, tagMap, collaboratorMap);
 
         if (pages.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
 
         return ResponseEntity.ok(new CursorResponse(pages, hasNext, nextCursor));
+    }
+
+    public ResponseEntity<List<BlogPagesDto>> getFeaturedBlogs(Pageable pageable) {
+        List<BlogPageBase> base =
+                blogRepository.findNextBlogPageBases(Visibility.PUBLIC, Instant.now(), pageable);
+
+        List<BlogTagView> tags =
+                blogRepository.findTagsForBlogs(base.stream().map(BlogPageBase::getId).toList());
+
+        Map<UUID, List<String>> tagMap = PostServiceHelper.tagMapper.apply(tags);
+        Map<UUID, List<BlogCollaboratorDto>> collaboratorMap = loadCollaborators(base);
+        List<BlogPagesDto> pages = PostServiceHelper.pageMapper(base, tagMap, collaboratorMap);
+
+        return ResponseEntity.ok(pages);
     }
 
     public ResponseEntity<CursorResponse> getByTags(Instant cursor, String tag, Pageable pageable) {
@@ -165,7 +203,8 @@ public class BlogService extends BaseService {
                 blogRepository.findTagsForBlogs(base.stream().map(BlogPageBase::getId).toList());
 
         Map<UUID, List<String>> tagMap = PostServiceHelper.tagMapper.apply(tags);
-        List<BlogPagesDto> pages = PostServiceHelper.pageMapper.apply(base, tagMap);
+        Map<UUID, List<BlogCollaboratorDto>> collaboratorMap = loadCollaborators(base);
+        List<BlogPagesDto> pages = PostServiceHelper.pageMapper(base, tagMap, collaboratorMap);
 
         if (pages.isEmpty()) {
             return ResponseEntity.noContent().build();
@@ -201,6 +240,11 @@ public class BlogService extends BaseService {
             throw new EntityNotFoundException("Blog content not found");
         }
         List<String> tags = blogRepository.findTagNamesByBlogId(id);
+        List<BlogCollaboratorDto> collaborators =
+                PostServiceHelper.collaboratorMapper(
+                                blogRoleRepository.findAllByBlogIdInAndRoleIn(
+                                        List.of(id), List.of(Roles.OWNER, Roles.EDITOR)))
+                        .getOrDefault(id, List.of());
         return ResponseEntity.ok(
                 new BlogDetailsDto(
                         blog.getId(),
@@ -210,15 +254,12 @@ public class BlogService extends BaseService {
                         blog.getContent().getContent(),
                         blog.getCreatedAt(),
                         tags,
-                        blog.getAuthorSnapshot()));
+                        blog.getAuthorSnapshot(),
+                        collaborators));
     }
 
     private boolean hasViewAccess(Blog blog, UUID userId) {
-        if (blog.getStatus() != PostStatus.PUBLISHED) {
-            return false;
-        }
-
-        if (blog.getVisibility() == Visibility.PUBLIC) {
+        if (blog.getVisibility() == Visibility.PUBLIC && blog.getStatus() == PostStatus.PUBLISHED) {
             return true;
         }
 
@@ -230,13 +271,11 @@ public class BlogService extends BaseService {
     }
 
     public ResponseEntity<CursorResponse> getByUser(
-            UUID id, Instant cursor, Pageable pageable, Visibility visibility) {
+            UUID id, Instant cursor, Pageable pageable, Visibility visibility, String requesterIdHeader) {
         int pageSize = pageable.getPageSize();
         Pageable limitPlusOne = PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
 
-        if (visibility == null) {
-            visibility = Visibility.PUBLIC;
-        }
+        visibility = resolveRequestedVisibility(id, visibility, requesterIdHeader);
 
         List<BlogPageBase> base =
                 blogRepository.findByAuthorId(id, visibility, cursor, limitPlusOne);
@@ -252,7 +291,8 @@ public class BlogService extends BaseService {
                 blogRepository.findTagsForBlogs(base.stream().map(BlogPageBase::getId).toList());
 
         Map<UUID, List<String>> tagMap = PostServiceHelper.tagMapper.apply(tags);
-        List<BlogPagesDto> pages = PostServiceHelper.pageMapper.apply(base, tagMap);
+        Map<UUID, List<BlogCollaboratorDto>> collaboratorMap = loadCollaborators(base);
+        List<BlogPagesDto> pages = PostServiceHelper.pageMapper(base, tagMap, collaboratorMap);
 
         if (pages.isEmpty()) {
             return ResponseEntity.ok(new CursorResponse(List.of(), false, null));
@@ -261,11 +301,35 @@ public class BlogService extends BaseService {
         return ResponseEntity.ok(new CursorResponse(pages, hasNext, nextCursor));
     }
 
+    private Visibility resolveRequestedVisibility(
+            UUID resourceOwnerId, Visibility requestedVisibility, String requesterIdHeader) {
+        if (requestedVisibility == null || requestedVisibility == Visibility.PUBLIC) {
+            return Visibility.PUBLIC;
+        }
+
+        if (requesterIdHeader == null || requesterIdHeader.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+
+        UUID requesterId;
+        try {
+            requesterId = UUID.fromString(requesterIdHeader);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+
+        if (!resourceOwnerId.equals(requesterId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+
+        return requestedVisibility;
+    }
+
     public ResponseEntity<CursorResponse> getForUser(UUID id, Instant cursor, Pageable pageable) {
         int pageSize = pageable.getPageSize();
         Pageable limitPlusOne = PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
 
-        List<BlogPageBase> base = blogRepository.findForAuthor(id, cursor, limitPlusOne);
+        List<BlogPageBase> base = blogRepository.findForMember(id, cursor, limitPlusOne);
 
         boolean hasNext = base.size() > pageSize;
         if (hasNext) {
@@ -278,7 +342,8 @@ public class BlogService extends BaseService {
                 blogRepository.findTagsForBlogs(base.stream().map(BlogPageBase::getId).toList());
 
         Map<UUID, List<String>> tagMap = PostServiceHelper.tagMapper.apply(tags);
-        List<BlogPagesDto> pages = PostServiceHelper.pageMapper.apply(base, tagMap);
+        Map<UUID, List<BlogCollaboratorDto>> collaboratorMap = loadCollaborators(base);
+        List<BlogPagesDto> pages = PostServiceHelper.pageMapper(base, tagMap, collaboratorMap);
 
         if (pages.isEmpty()) {
             return ResponseEntity.ok(new CursorResponse(List.of(), false, null));
@@ -328,5 +393,27 @@ public class BlogService extends BaseService {
 
         blogRepository.save(blog);
         return buildResponse(HttpStatus.OK, "ok");
+    }
+
+    private void assertCanEdit(UUID blogId, UUID userId) {
+        BlogMember member =
+                blogRoleRepository
+                        .findByBlogIdAndUserId(blogId, userId)
+                        .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+
+        if (member.getRole() != Roles.OWNER && member.getRole() != Roles.EDITOR) {
+            throw new AccessDeniedException("No write access");
+        }
+    }
+
+    private Map<UUID, List<BlogCollaboratorDto>> loadCollaborators(List<BlogPageBase> base) {
+        List<UUID> blogIds = base.stream().map(BlogPageBase::getId).toList();
+        if (blogIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return PostServiceHelper.collaboratorMapper(
+                blogRoleRepository.findAllByBlogIdInAndRoleIn(
+                        blogIds, List.of(Roles.OWNER, Roles.EDITOR)));
     }
 }

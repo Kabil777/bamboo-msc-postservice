@@ -33,6 +33,8 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.name as authorName,
+                     d.authorSnapshot.handle as authorHandle,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
@@ -50,6 +52,8 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.name as authorName,
+                     d.authorSnapshot.handle as authorHandle,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
@@ -70,6 +74,31 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.name as authorName,
+                     d.authorSnapshot.handle as authorHandle,
+                     d.visibility as visibility,
+                     d.status as status
+                    from Docs d
+                    join DocsMember dm on dm.docsId = d.id
+                    where dm.userId = :userId
+                      and d.createdAt < :cursor
+                    order by d.createdAt desc
+            """)
+    List<DocHomeDto> findForMember(
+            @Param("userId") UUID userId,
+            @Param("cursor") java.time.Instant cursor,
+            Pageable pageable);
+
+    @Query(
+            """
+                select
+                     d.id as id ,
+                     d.title as title,
+                     d.coverUrl as coverUrl ,
+                     d.description as description ,
+                     d.createdAt as createdAt,
+                     d.authorSnapshot.name as authorName,
+                     d.authorSnapshot.handle as authorHandle,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d

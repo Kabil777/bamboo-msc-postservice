@@ -14,4 +14,5 @@ public record BlogDetailsDto(
         String content,
         Instant createdAt,
         List<String> tags,
-        AuthorSnapshot authorSnapshot) {}
+        AuthorSnapshot authorSnapshot,
+        List<BlogCollaboratorDto> collaborators) {}

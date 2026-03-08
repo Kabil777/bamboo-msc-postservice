@@ -7,7 +7,6 @@ import com.bamboo.postService.dto.blog.BlogPageDto;
 import com.bamboo.postService.dto.blog.CursorResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
-import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.service.BlogService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -43,9 +44,11 @@ public class BlogController {
 
     @PostMapping("/{blogId}/content")
     public ResponseEntity<CommonResponse<String>> saveContent(
-            @PathVariable UUID blogId, @RequestBody BlogPageDto blogPageDto) {
-        log.info("data: {}", blogPageDto.content());
+            @PathVariable UUID blogId,
+            @RequestBody BlogPageDto blogPageDto,
+            @RequestHeader("X-User-Id") UUID userId) {
         return blogService.saveContent(
+                userId,
                 blogId,
                 blogPageDto.content(),
                 blogPageDto.visibility(),
@@ -62,15 +65,8 @@ public class BlogController {
 
     @PostMapping("/meta")
     public ResponseEntity<CommonResponse<Map<String, UUID>>> savePost(
-            @RequestBody MetaPostDto entity,
-            @RequestHeader("X-User-Id") UUID userId,
-            @RequestHeader("X-User-Name") String name,
-            @RequestHeader("X-User-Email") String email,
-            @RequestHeader(value = "X-User-Handle", required = false) String handle,
-            @RequestHeader(value = "X-User-Avatar", required = false) String avatarUrl) {
-        AuthorSnapshot snapshot = new AuthorSnapshot(userId, name, handle, avatarUrl);
-
-        return blogService.save(entity, snapshot);
+            @RequestBody MetaPostDto entity, @RequestHeader("X-User-Id") UUID userId) {
+        return blogService.save(entity, userId);
     }
 
     @GetMapping
@@ -80,6 +76,13 @@ public class BlogController {
             @RequestParam(required = false) Instant cursor) {
         if (cursor == null) cursor = Instant.now();
         return blogService.getCoverBlogs(pageable, cursor);
+    }
+
+    @GetMapping("/featured")
+    public ResponseEntity<java.util.List<com.bamboo.postService.dto.blog.BlogPagesDto>> getFeaturedPages(
+            @PageableDefault(size = 3, sort = "createdAt", direction = Sort.Direction.DESC)
+                    Pageable pageable) {
+        return blogService.getFeaturedBlogs(pageable);
     }
 
     @GetMapping("/{id}")
@@ -105,8 +108,9 @@ public class BlogController {
             @RequestParam(required = false) Instant cursor,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
                     Pageable pageable,
-            @RequestParam(required = false) Visibility visibility) {
+            @RequestParam(required = false) Visibility visibility,
+            HttpServletRequest request) {
         if (cursor == null) cursor = Instant.now();
-        return blogService.getByUser(id, cursor, pageable, visibility);
+        return blogService.getByUser(id, cursor, pageable, visibility, request.getHeader("X-User-Id"));
     }
 }

@@ -6,6 +6,7 @@ import com.bamboo.postService.common.enums.Roles;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,4 +22,6 @@ public interface BlogRoleRepository extends JpaRepository<BlogMember, UUID> {
     long countByBlogIdAndRole(UUID blogId, Roles role);
 
     List<BlogMember> findAllByBlogId(UUID blogId);
+
+    List<BlogMember> findAllByBlogIdInAndRoleIn(Collection<UUID> blogIds, Collection<Roles> roles);
 }

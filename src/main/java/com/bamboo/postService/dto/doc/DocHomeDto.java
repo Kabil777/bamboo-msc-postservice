@@ -11,5 +11,7 @@ public record DocHomeDto(
         String coverUrl,
         String description,
         Instant createdAt,
+        String authorName,
+        String authorHandle,
         Visibility visibility,
         PostStatus status) {}

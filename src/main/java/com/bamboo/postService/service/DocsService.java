@@ -10,17 +10,21 @@ import com.bamboo.postService.common.response.RoleResponse;
 import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.dto.doc.DocCreateRequestDto;
+import com.bamboo.postService.dto.doc.DocCursorResponse;
 import com.bamboo.postService.dto.doc.DocHomeDto;
 import com.bamboo.postService.dto.doc.DocPageContentRequest;
 import com.bamboo.postService.dto.doc.DocResponse;
 import com.bamboo.postService.dto.doc.DocsContentRequest;
-import com.bamboo.postService.dto.doc.DocCursorResponse;
+import com.bamboo.postService.dto.feign.UserMetaDto;
 import com.bamboo.postService.entity.AuthorSnapshot;
 import com.bamboo.postService.entity.Docs;
 import com.bamboo.postService.entity.DocsMember;
 import com.bamboo.postService.entity.Pages;
 import com.bamboo.postService.entity.Tags;
+import com.bamboo.postService.exception.AccessDeniedException;
 import com.bamboo.postService.exception.RoleNotFoundException;
+import com.bamboo.postService.exception.UserNotFoundException;
+import com.bamboo.postService.feign.UserServiceClient;
 import com.bamboo.postService.repository.DocsRepository;
 import com.bamboo.postService.repository.DocsRoleRepository;
 import com.bamboo.postService.repository.PageRepository;
@@ -31,8 +35,8 @@ import jakarta.transaction.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,21 +58,27 @@ public class DocsService extends BaseService {
     private final PageRepository pageRepository;
     private final TagRepository tagRepository;
     private final DocsRoleRepository docsRoleRepository;
+    private final UserServiceClient userServiceClient;
 
     public DocsService(
             DocsRepository docsRepository,
             PageRepository pageRepository,
             TagRepository tagRepository,
-            DocsRoleRepository docsRoleRepository) {
+            DocsRoleRepository docsRoleRepository,
+            UserServiceClient userServiceClient) {
         this.docsRepository = docsRepository;
         this.pageRepository = pageRepository;
         this.tagRepository = tagRepository;
         this.docsRoleRepository = docsRoleRepository;
+        this.userServiceClient = userServiceClient;
     }
 
     @Transactional
     public ResponseEntity<CommonResponse<String>> savePost(
-            DocCreateRequestDto doc, AuthorSnapshot snapshot) {
+            DocCreateRequestDto doc, UUID userId, String email) {
+        UserMetaDto actor = resolveUserById(userId);
+        AuthorSnapshot snapshot =
+                new AuthorSnapshot(actor.id(), actor.name(), actor.handle(), actor.coverUrl());
 
         Docs docs = new Docs();
         docs.setId(UUID.randomUUID());
@@ -96,14 +106,17 @@ public class DocsService extends BaseService {
         TransformResult result = DocsTrasformer.transform(docs.getId(), doc.pages());
         docs.setTree(result.tree());
         docsRepository.save(docs);
-        docsRoleRepository.save(buildOwnerRole(docs.getId(), snapshot));
+        docsRoleRepository.save(buildOwnerRole(docs.getId(), snapshot, email));
         pageRepository.saveAll(result.pages());
         return buildResponse(HttpStatus.CREATED, "Docs created successfully !");
     }
 
     @Transactional
     public ResponseEntity<CommonResponse<Map<String, UUID>>> saveDocsMeta(
-            MetaPostDto entity, AuthorSnapshot snapshot) {
+            MetaPostDto entity, UUID userId, String email) {
+        UserMetaDto actor = resolveUserById(userId);
+        AuthorSnapshot snapshot =
+                new AuthorSnapshot(actor.id(), actor.name(), actor.handle(), actor.coverUrl());
 
         Docs doc =
                 Docs.builder()
@@ -120,9 +133,17 @@ public class DocsService extends BaseService {
         doc.setTags(tags);
 
         docsRepository.save(doc);
-        docsRoleRepository.save(buildOwnerRole(doc.getId(), snapshot));
+        docsRoleRepository.save(buildOwnerRole(doc.getId(), snapshot, email));
 
         return buildResponse(HttpStatus.CREATED, Map.of("id", doc.getId()));
+    }
+
+    private UserMetaDto resolveUserById(UUID userId) {
+        try {
+            return userServiceClient.getUserById(userId);
+        } catch (Exception ex) {
+            throw new UserNotFoundException("User not found: " + userId);
+        }
     }
 
     @Transactional
@@ -183,7 +204,9 @@ public class DocsService extends BaseService {
 
     @Transactional
     public ResponseEntity<CommonResponse<String>> saveDocsContent(
-            UUID docsId, DocsContentRequest request) {
+            UUID userId, UUID docsId, DocsContentRequest request) {
+        assertCanEdit(docsId, userId);
+
         Docs docs =
                 docsRepository
                         .findById(docsId)
@@ -262,24 +285,20 @@ public class DocsService extends BaseService {
         return buildResponse(HttpStatus.OK, "ok");
     }
 
-    private DocsMember buildOwnerRole(UUID docsId, AuthorSnapshot snapshot) {
+    private DocsMember buildOwnerRole(UUID docsId, AuthorSnapshot snapshot, String email) {
         DocsMember member = new DocsMember();
         member.setDocsId(docsId);
         member.setUserId(snapshot.getId());
         member.setUserName(snapshot.getName());
         member.setUserHandle(snapshot.getHandle());
         member.setUserCoverUrl(snapshot.getAvatarUrl());
-        member.setUserEmail(null);
+        member.setUserEmail(email);
         member.setRole(Roles.OWNER);
         return member;
     }
 
     private boolean hasViewAccess(Docs docs, UUID userId) {
-        if (docs.getStatus() != PostStatus.PUBLISHED) {
-            return false;
-        }
-
-        if (docs.getVisibility() == Visibility.PUBLIC) {
+        if (docs.getVisibility() == Visibility.PUBLIC && docs.getStatus() == PostStatus.PUBLISHED) {
             return true;
         }
 
@@ -299,10 +318,9 @@ public class DocsService extends BaseService {
     public ResponseEntity<DocCursorResponse> getForUser(
             UUID id, Instant cursor, Pageable pageable) {
         int pageSize = pageable.getPageSize();
-        Pageable limitPlusOne =
-                PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
+        Pageable limitPlusOne = PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
 
-        List<DocHomeDto> base = docsRepository.findForAuthor(id, cursor, limitPlusOne);
+        List<DocHomeDto> base = docsRepository.findForMember(id, cursor, limitPlusOne);
 
         boolean hasNext = base.size() > pageSize;
         if (hasNext) {
@@ -314,14 +332,11 @@ public class DocsService extends BaseService {
     }
 
     public ResponseEntity<DocCursorResponse> getByUser(
-            UUID id, Instant cursor, Pageable pageable, Visibility visibility) {
+            UUID id, Instant cursor, Pageable pageable, Visibility visibility, String requesterIdHeader) {
         int pageSize = pageable.getPageSize();
-        Pageable limitPlusOne =
-                PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
+        Pageable limitPlusOne = PageRequest.of(0, pageSize + 1, Sort.by("createdAt").descending());
 
-        if (visibility == null) {
-            visibility = Visibility.PUBLIC;
-        }
+        visibility = resolveRequestedVisibility(id, visibility, requesterIdHeader);
 
         List<DocHomeDto> base =
                 docsRepository.findForAuthorWithVisibility(id, visibility, cursor, limitPlusOne);
@@ -333,5 +348,40 @@ public class DocsService extends BaseService {
 
         Instant nextCursor = hasNext ? base.get(base.size() - 1).createdAt() : null;
         return ResponseEntity.ok(new DocCursorResponse(base, hasNext, nextCursor));
+    }
+
+    private Visibility resolveRequestedVisibility(
+            UUID resourceOwnerId, Visibility requestedVisibility, String requesterIdHeader) {
+        if (requestedVisibility == null || requestedVisibility == Visibility.PUBLIC) {
+            return Visibility.PUBLIC;
+        }
+
+        if (requesterIdHeader == null || requesterIdHeader.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+
+        UUID requesterId;
+        try {
+            requesterId = UUID.fromString(requesterIdHeader);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+
+        if (!resourceOwnerId.equals(requesterId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+
+        return requestedVisibility;
+    }
+
+    private void assertCanEdit(UUID docsId, UUID userId) {
+        DocsMember member =
+                docsRoleRepository
+                        .findByDocsIdAndUserId(docsId, userId)
+                        .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+
+        if (member.getRole() != Roles.OWNER && member.getRole() != Roles.EDITOR) {
+            throw new AccessDeniedException("No write access");
+        }
     }
 }
