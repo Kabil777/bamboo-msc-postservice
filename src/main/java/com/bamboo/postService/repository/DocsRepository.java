@@ -33,8 +33,10 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.id as authorId,
                      d.authorSnapshot.name as authorName,
                      d.authorSnapshot.handle as authorHandle,
+                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
@@ -52,8 +54,10 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.id as authorId,
                      d.authorSnapshot.name as authorName,
                      d.authorSnapshot.handle as authorHandle,
+                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
@@ -74,8 +78,10 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.id as authorId,
                      d.authorSnapshot.name as authorName,
                      d.authorSnapshot.handle as authorHandle,
+                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
@@ -97,8 +103,10 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
+                     d.authorSnapshot.id as authorId,
                      d.authorSnapshot.name as authorName,
                      d.authorSnapshot.handle as authorHandle,
+                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d

@@ -5,7 +5,7 @@ import com.bamboo.postService.common.response.UpdateRoleRequest;
 import com.bamboo.postService.common.response.UpsertRoleRequest;
 import com.bamboo.postService.common.response.BlogMemberRoleResponse;
 import com.bamboo.postService.service.BlogRoleService;
-import com.bamboo.postService.service.BlogService;
+import com.bamboo.postService.service.BlogQueryService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,13 +30,13 @@ import java.util.UUID;
 public class BlogRoleController {
 
     private final BlogRoleService blogRoleService;
-    private final BlogService blogService;
+    private final BlogQueryService blogQueryService;
 
     @GetMapping("/role/{blogId}")
     public ResponseEntity<RoleResponse> getRole(
             @RequestHeader("X-User-Id") UUID userId, @PathVariable UUID blogId) {
 
-        return blogService.getRole(userId, blogId);
+        return ResponseEntity.ok(blogQueryService.getRole(userId, blogId));
     }
 
     @GetMapping("/{blogId}/roles")

@@ -6,10 +6,10 @@ import com.bamboo.postService.common.response.RoleResponse;
 import com.bamboo.postService.common.response.UpsertRoleRequest;
 import com.bamboo.postService.dto.feign.UserMetaDto;
 import com.bamboo.postService.entity.DocsMember;
-import com.bamboo.postService.exception.AccessDeniedException;
 import com.bamboo.postService.exception.RoleNotFoundException;
 import com.bamboo.postService.exception.UserNotFoundException;
 import com.bamboo.postService.feign.UserServiceClient;
+import com.bamboo.postService.policy.PostAccessPolicy;
 import com.bamboo.postService.repository.DocsRoleRepository;
 
 import jakarta.transaction.Transactional;
@@ -32,6 +32,7 @@ public class DocsRoleService {
 
     private final DocsRoleRepository docsRoleRepository;
     private final UserServiceClient userServiceClient;
+    private final PostAccessPolicy postAccessPolicy;
 
     public RoleResponse addRole(UUID actorUserId, UUID docsId, UpsertRoleRequest request) {
         if (request.userEmail() == null || request.userEmail().isBlank()) {
@@ -47,9 +48,8 @@ public class DocsRoleService {
                 request.userEmail(),
                 request.role());
 
-        UserMetaDto targetUser = resolveUserByEmail(request.userEmail());
-
         assertOwner(actorUserId, docsId);
+        UserMetaDto targetUser = resolveUserByEmail(request.userEmail());
 
         DocsMember member =
                 docsRoleRepository
@@ -83,9 +83,8 @@ public class DocsRoleService {
         if (newRole == null) {
             throw new IllegalStateException("Role is required");
         }
-        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
-
         assertOwner(actorUserId, docsId);
+        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
 
         DocsMember target =
                 docsRoleRepository
@@ -111,9 +110,8 @@ public class DocsRoleService {
         if (targetEmail == null || targetEmail.isBlank()) {
             throw new IllegalStateException("Target email is required");
         }
-        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
-
         assertOwner(actorUserId, docsId);
+        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
 
         DocsMember target =
                 docsRoleRepository
@@ -130,10 +128,7 @@ public class DocsRoleService {
     }
 
     public List<DocsMemberRoleResponse> listRoles(UUID userId, UUID docsId) {
-        // Any member can view roles list.
-        docsRoleRepository
-                .findByDocsIdAndUserId(docsId, userId)
-                .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+        postAccessPolicy.assertIsMember(resolveRole(docsId, userId), "Unauthorized");
 
         return docsRoleRepository.findAllByDocsId(docsId).stream()
                 .sorted(Comparator.comparing((DocsMember m) -> m.getRole() != Roles.OWNER))
@@ -158,14 +153,13 @@ public class DocsRoleService {
     }
 
     private void assertOwner(UUID actorUserId, UUID docsId) {
-        DocsMember actor =
-                docsRoleRepository
-                        .findByDocsIdAndUserId(docsId, actorUserId)
-                        .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+        postAccessPolicy.assertCanManage(resolveRole(docsId, actorUserId), "Only owner can manage roles");
+    }
 
-        if (actor.getRole() != Roles.OWNER) {
-            throw new AccessDeniedException("Only owner can manage roles");
-        }
+    private Roles resolveRole(UUID docsId, UUID userId) {
+        return docsRoleRepository.findByDocsIdAndUserId(docsId, userId)
+                .map(DocsMember::getRole)
+                .orElse(null);
     }
 
     private void assertNotLastOwner(UUID docsId) {

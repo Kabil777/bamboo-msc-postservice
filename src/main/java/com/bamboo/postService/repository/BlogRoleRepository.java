@@ -24,4 +24,6 @@ public interface BlogRoleRepository extends JpaRepository<BlogMember, UUID> {
     List<BlogMember> findAllByBlogId(UUID blogId);
 
     List<BlogMember> findAllByBlogIdInAndRoleIn(Collection<UUID> blogIds, Collection<Roles> roles);
+
+    void deleteAllByBlogId(UUID blogId);
 }

@@ -34,3 +34,7 @@ s3:
   bucket:
     name: spring-uploads
     baseUrl: http://localhost:8443
+    uploadUrl: http://localhost:9000
+  credentials:
+    user: ${S3_ADMIN}
+    password: ${S3_PASSWORD}

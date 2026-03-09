@@ -21,15 +21,24 @@ public class BucketConfig {
     @Value("${s3.bucket.name}")
     private String bucketName;
 
+    @Value("${s3.bucket.uploadUrl}")
+    private String uploadUrl;
+
+    @Value("${s3.credentials.user}")
+    private String s3User;
+
+    @Value("${s3.credentials.password}")
+    private String s3Password;
+
     @Bean
     public S3Client s3Client() {
         S3Client s3 =
                 S3Client.builder()
-                        .endpointOverride(URI.create("http://localhost:9000"))
+                        .endpointOverride(URI.create(uploadUrl))
                         .region(Region.US_EAST_1)
                         .credentialsProvider(
                                 StaticCredentialsProvider.create(
-                                        AwsBasicCredentials.create("rustfsadmin", "kabil777")))
+                                        AwsBasicCredentials.create(s3User, s3Password)))
                         .forcePathStyle(true)
                         .build();
 

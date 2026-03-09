@@ -26,12 +26,12 @@ public class UploadController {
     @PostMapping(value = "/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PlainImageUploadResponse> upload(@RequestPart("file") MultipartFile file)
             throws IOException {
-        return bucketUploadService.uploadPlainImage(file);
+        return ResponseEntity.ok(bucketUploadService.uploadPlainImage(file));
     }
 
     @PostMapping(value = "/image/url")
     public ResponseEntity<PlainImageUploadResponse> uploadFromUrl(@RequestParam("url") String url)
             throws IOException, InterruptedException {
-        return bucketUploadService.uploadImageFromUrl(url);
+        return ResponseEntity.ok(bucketUploadService.uploadImageFromUrl(url));
     }
 }

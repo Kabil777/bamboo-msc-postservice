@@ -1,9 +1,9 @@
 package com.bamboo.postService.controller;
 
-import com.bamboo.postService.dto.blog.CursorResponse;
-import com.bamboo.postService.dto.doc.DocCursorResponse;
-import com.bamboo.postService.service.BlogService;
-import com.bamboo.postService.service.DocsService;
+import com.bamboo.postService.dto.blog.BlogCursorResponseV1Dto;
+import com.bamboo.postService.dto.doc.DocCursorResponseV1Dto;
+import com.bamboo.postService.service.BlogQueryService;
+import com.bamboo.postService.service.DocsQueryService;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -22,31 +22,32 @@ import java.util.UUID;
 @RequestMapping(value = "/internal")
 public class InternalServiceController {
 
-    private final BlogService blogService;
-    private final DocsService docsService;
+    private final BlogQueryService blogQueryService;
+    private final DocsQueryService docsQueryService;
 
-    public InternalServiceController(BlogService blogService, DocsService docsService) {
-        this.blogService = blogService;
-        this.docsService = docsService;
+    public InternalServiceController(
+            BlogQueryService blogQueryService, DocsQueryService docsQueryService) {
+        this.blogQueryService = blogQueryService;
+        this.docsQueryService = docsQueryService;
     }
 
     @GetMapping("/blogs/user/{id}")
-    public ResponseEntity<CursorResponse> getBlogForUser(
+    public ResponseEntity<BlogCursorResponseV1Dto> getBlogForUser(
             @PathVariable UUID id,
             @RequestParam(required = false) Instant cursor,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
                     Pageable pageable) {
         if (cursor == null) cursor = Instant.now();
-        return blogService.getForUser(id, cursor, pageable);
+        return ResponseEntity.ok(blogQueryService.getForUser(id, cursor, pageable));
     }
 
     @GetMapping("/docs/user/{id}")
-    public ResponseEntity<DocCursorResponse> getDocsForUser(
+    public ResponseEntity<DocCursorResponseV1Dto> getDocsForUser(
             @PathVariable UUID id,
             @RequestParam(required = false) Instant cursor,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
                     Pageable pageable) {
         if (cursor == null) cursor = Instant.now();
-        return docsService.getForUser(id, cursor, pageable);
+        return ResponseEntity.ok(docsQueryService.getForUser(id, cursor, pageable));
     }
 }

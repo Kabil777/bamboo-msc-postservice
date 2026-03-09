@@ -77,8 +77,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ResponseStatusException.class})
     public ResponseEntity<ApiError> handlerResponseMismatchError(
-            Exception ex, HttpServletRequest request) {
-        return buildError(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+            ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status =
+                ex.getStatusCode() instanceof HttpStatus resolved ? resolved : HttpStatus.BAD_REQUEST;
+        return buildError(status, ex.getReason() != null ? ex.getReason() : ex.getMessage(), request);
     }
 
     private ResponseEntity<ApiError> buildError(

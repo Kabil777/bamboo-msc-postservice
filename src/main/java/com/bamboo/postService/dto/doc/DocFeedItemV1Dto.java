@@ -1,19 +1,18 @@
 package com.bamboo.postService.dto.doc;
 
-import java.time.Instant;
-import java.util.UUID;
 import com.bamboo.postService.common.enums.PostStatus;
 import com.bamboo.postService.common.enums.Visibility;
+import com.bamboo.postService.dto.common.AuthorSummaryV1Dto;
 
-public record DocHomeDto(
+import java.time.Instant;
+import java.util.UUID;
+
+public record DocFeedItemV1Dto(
         UUID id,
         String title,
         String coverUrl,
         String description,
         Instant createdAt,
-        UUID authorId,
-        String authorName,
-        String authorHandle,
-        String authorAvatarUrl,
         Visibility visibility,
-        PostStatus status) {}
+        PostStatus status,
+        AuthorSummaryV1Dto author) {}

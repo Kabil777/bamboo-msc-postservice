@@ -5,7 +5,6 @@ import com.bamboo.postService.dto.upload.PlainImageUploadResponse;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,8 +33,7 @@ public class BucketUploadService {
     @Value("${s3.bucket.name}")
     private String bucket;
 
-    public ResponseEntity<PlainImageUploadResponse> uploadPlainImage(MultipartFile image)
-            throws IOException {
+    public PlainImageUploadResponse uploadPlainImage(MultipartFile image) throws IOException {
         String key = "images/" + UUID.randomUUID() + "-" + image.getOriginalFilename();
         s3Client.putObject(
                 PutObjectRequest.builder()
@@ -45,11 +43,10 @@ public class BucketUploadService {
                         .build(),
                 RequestBody.fromBytes(image.getBytes()));
 
-        return ResponseEntity.ok(
-                new PlainImageUploadResponse(true, uploadBaseUrl + "/" + bucket + "/" + key));
+        return new PlainImageUploadResponse(true, uploadBaseUrl + "/" + bucket + "/" + key);
     }
 
-    public ResponseEntity<PlainImageUploadResponse> uploadImageFromUrl(String url)
+    public PlainImageUploadResponse uploadImageFromUrl(String url)
             throws IOException, InterruptedException {
         URI uri = URI.create(url);
         String scheme = uri.getScheme();
@@ -104,7 +101,6 @@ public class BucketUploadService {
                     RequestBody.fromBytes(bytes));
         }
 
-        return ResponseEntity.ok(
-                new PlainImageUploadResponse(true, uploadBaseUrl + "/" + bucket + "/" + key));
+        return new PlainImageUploadResponse(true, uploadBaseUrl + "/" + bucket + "/" + key);
     }
 }

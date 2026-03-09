@@ -6,10 +6,10 @@ import com.bamboo.postService.common.response.RoleResponse;
 import com.bamboo.postService.common.response.UpsertRoleRequest;
 import com.bamboo.postService.dto.feign.UserMetaDto;
 import com.bamboo.postService.entity.BlogMember;
-import com.bamboo.postService.exception.AccessDeniedException;
 import com.bamboo.postService.exception.RoleNotFoundException;
 import com.bamboo.postService.exception.UserNotFoundException;
 import com.bamboo.postService.feign.UserServiceClient;
+import com.bamboo.postService.policy.PostAccessPolicy;
 import com.bamboo.postService.repository.BlogRoleRepository;
 
 import jakarta.transaction.Transactional;
@@ -32,6 +32,7 @@ public class BlogRoleService {
 
     private final BlogRoleRepository blogRoleRepository;
     private final UserServiceClient userServiceClient;
+    private final PostAccessPolicy postAccessPolicy;
 
     public RoleResponse addRole(UUID actorUserId, UUID blogId, UpsertRoleRequest request) {
         if (request.userEmail() == null || request.userEmail().isBlank()) {
@@ -47,9 +48,8 @@ public class BlogRoleService {
                 request.userEmail(),
                 request.role());
 
-        UserMetaDto targetUser = resolveUserByEmail(request.userEmail());
-
         assertOwner(actorUserId, blogId);
+        UserMetaDto targetUser = resolveUserByEmail(request.userEmail());
 
         BlogMember member =
                 blogRoleRepository
@@ -79,9 +79,8 @@ public class BlogRoleService {
         if (newRole == null) {
             throw new IllegalStateException("Role is required");
         }
-        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
-
         assertOwner(actorUserId, blogId);
+        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
 
         BlogMember target =
                 blogRoleRepository
@@ -107,9 +106,8 @@ public class BlogRoleService {
         if (targetEmail == null || targetEmail.isBlank()) {
             throw new IllegalStateException("Target email is required");
         }
-        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
-
         assertOwner(actorUserId, blogId);
+        UserMetaDto targetUser = resolveUserByEmail(targetEmail);
 
         BlogMember target =
                 blogRoleRepository
@@ -126,10 +124,7 @@ public class BlogRoleService {
     }
 
     public List<BlogMemberRoleResponse> listRoles(UUID userId, UUID blogId) {
-        // Any member can view roles list.
-        blogRoleRepository
-                .findByBlogIdAndUserId(blogId, userId)
-                .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+        postAccessPolicy.assertIsMember(resolveRole(blogId, userId), "Unauthorized");
 
         return blogRoleRepository.findAllByBlogId(blogId).stream()
                 .sorted(Comparator.comparing((BlogMember m) -> m.getRole() != Roles.OWNER))
@@ -154,14 +149,13 @@ public class BlogRoleService {
     }
 
     private void assertOwner(UUID actorUserId, UUID blogId) {
-        BlogMember actor =
-                blogRoleRepository
-                        .findByBlogIdAndUserId(blogId, actorUserId)
-                        .orElseThrow(() -> new RoleNotFoundException("Unauthorized"));
+        postAccessPolicy.assertCanManage(resolveRole(blogId, actorUserId), "Only owner can manage roles");
+    }
 
-        if (actor.getRole() != Roles.OWNER) {
-            throw new AccessDeniedException("Only owner can manage roles");
-        }
+    private Roles resolveRole(UUID blogId, UUID userId) {
+        return blogRoleRepository.findByBlogIdAndUserId(blogId, userId)
+                .map(BlogMember::getRole)
+                .orElse(null);
     }
 
     private void assertNotLastOwner(UUID blogId) {
