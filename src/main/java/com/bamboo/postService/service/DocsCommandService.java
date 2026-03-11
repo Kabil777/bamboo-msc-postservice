@@ -12,7 +12,7 @@ import com.bamboo.postService.dto.doc.DocCreateRequestDto;
 import com.bamboo.postService.dto.doc.DocPageContentRequest;
 import com.bamboo.postService.dto.doc.DocsContentRequest;
 import com.bamboo.postService.dto.feign.UserMetaDto;
-import com.bamboo.postService.entity.AuthorSnapshot;
+import com.bamboo.postService.entity.AuthorProfileProjection;
 import com.bamboo.postService.entity.Docs;
 import com.bamboo.postService.entity.DocsMember;
 import com.bamboo.postService.entity.Pages;
@@ -50,6 +50,7 @@ public class DocsCommandService {
     private final DocsRoleRepository docsRoleRepository;
     private final UserServiceClient userServiceClient;
     private final PostAccessPolicy postAccessPolicy;
+    private final AuthorProjectionService authorProjectionService;
 
     public DocsCommandService(
             DocsRepository docsRepository,
@@ -57,27 +58,28 @@ public class DocsCommandService {
             TagRepository tagRepository,
             DocsRoleRepository docsRoleRepository,
             UserServiceClient userServiceClient,
-            PostAccessPolicy postAccessPolicy) {
+            PostAccessPolicy postAccessPolicy,
+            AuthorProjectionService authorProjectionService) {
         this.docsRepository = docsRepository;
         this.pageRepository = pageRepository;
         this.tagRepository = tagRepository;
         this.docsRoleRepository = docsRoleRepository;
         this.userServiceClient = userServiceClient;
         this.postAccessPolicy = postAccessPolicy;
+        this.authorProjectionService = authorProjectionService;
     }
 
     @Transactional
     public String savePost(DocCreateRequestDto doc, UUID userId) {
         UserMetaDto actor = resolveUserById(userId);
-        AuthorSnapshot snapshot =
-                new AuthorSnapshot(actor.id(), actor.name(), actor.handle(), actor.coverUrl());
+        AuthorProfileProjection authorProfile = authorProjectionService.upsert(actor);
 
         Docs docs = new Docs();
         docs.setId(UUID.randomUUID());
         docs.setTitle(doc.title());
         docs.setDescription(doc.description());
         docs.setCoverUrl(doc.coverUrl());
-        docs.setAuthorSnapshot(snapshot);
+        docs.setAuthorProfile(authorProfile);
         docs.setContent(doc.content());
         docs.setVisibility(Visibility.PRIVATE);
         docs.setStatus(PostStatus.DRAFT);
@@ -98,7 +100,7 @@ public class DocsCommandService {
         TransformResult result = DocsTrasformer.transform(docs.getId(), doc.pages());
         docs.setTree(result.tree());
         docsRepository.save(docs);
-        docsRoleRepository.save(buildOwnerRole(docs.getId(), snapshot, actor.email()));
+        docsRoleRepository.save(buildOwnerRole(docs.getId(), authorProfile, actor.email()));
         pageRepository.saveAll(result.pages());
         return "Docs created successfully !";
     }
@@ -106,8 +108,7 @@ public class DocsCommandService {
     @Transactional
     public Map<String, UUID> saveDocsMeta(MetaPostDto entity, UUID userId) {
         UserMetaDto actor = resolveUserById(userId);
-        AuthorSnapshot snapshot =
-                new AuthorSnapshot(actor.id(), actor.name(), actor.handle(), actor.coverUrl());
+        AuthorProfileProjection authorProfile = authorProjectionService.upsert(actor);
         UUID docId = UUID.randomUUID();
         UUID overviewPageId = docId;
 
@@ -117,7 +118,7 @@ public class DocsCommandService {
                         .title(entity.title())
                         .coverUrl(entity.coverUrl())
                         .description(entity.description())
-                        .authorSnapshot(snapshot)
+                        .authorProfile(authorProfile)
                         .createdAt(Instant.now())
                         .visibility(Visibility.PRIVATE)
                         .status(PostStatus.DRAFT)
@@ -128,7 +129,7 @@ public class DocsCommandService {
         doc.setTags(tags);
 
         docsRepository.save(doc);
-        docsRoleRepository.save(buildOwnerRole(doc.getId(), snapshot, actor.email()));
+        docsRoleRepository.save(buildOwnerRole(doc.getId(), authorProfile, actor.email()));
         pageRepository.save(new Pages(overviewPageId, doc.getId(), ""));
 
         return Map.of("id", doc.getId());
@@ -147,6 +148,8 @@ public class DocsCommandService {
                                                 "Document with current Id not found"));
 
         docs.setTree(request.tree());
+        List<PageNode> strippedTree = DocsTrasformer.stripTreeContent(request.tree());
+        docs.setTree(strippedTree);
         if (request.visibility() != null) {
             docs.setVisibility(request.visibility());
         }
@@ -155,8 +158,6 @@ public class DocsCommandService {
         } else if (request.visibility() != null) {
             docs.setStatus(PostStatus.PUBLISHED);
         }
-        docsRepository.save(docs);
-
         if (request.pages() != null && !request.pages().isEmpty()) {
             request.pages().stream()
                     .filter(page -> Objects.equals(page.pageId(), docsId))
@@ -172,6 +173,8 @@ public class DocsCommandService {
                             .toList();
             pageRepository.saveAll(pages);
         }
+
+        docsRepository.save(docs);
 
         return "Docs content saved";
     }
@@ -200,13 +203,14 @@ public class DocsCommandService {
         return "ok";
     }
 
-    private DocsMember buildOwnerRole(UUID docsId, AuthorSnapshot snapshot, String email) {
+    private DocsMember buildOwnerRole(
+            UUID docsId, AuthorProfileProjection authorProfile, String email) {
         DocsMember member = new DocsMember();
         member.setDocsId(docsId);
-        member.setUserId(snapshot.getId());
-        member.setUserName(snapshot.getName());
-        member.setUserHandle(snapshot.getHandle());
-        member.setUserCoverUrl(snapshot.getAvatarUrl());
+        member.setUserId(authorProfile.getId());
+        member.setUserName(authorProfile.getName());
+        member.setUserHandle(authorProfile.getHandle());
+        member.setUserCoverUrl(authorProfile.getAvatarUrl());
         member.setUserEmail(email);
         member.setRole(Roles.OWNER);
         return member;
@@ -221,7 +225,8 @@ public class DocsCommandService {
             return null;
         }
 
-        return docsRoleRepository.findByDocsIdAndUserId(docsId, userId)
+        return docsRoleRepository
+                .findByDocsIdAndUserId(docsId, userId)
                 .map(DocsMember::getRole)
                 .orElse(null);
     }

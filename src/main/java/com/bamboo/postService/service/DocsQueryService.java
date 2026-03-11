@@ -2,6 +2,7 @@ package com.bamboo.postService.service;
 
 import com.bamboo.postService.common.enums.Roles;
 import com.bamboo.postService.common.enums.Visibility;
+import com.bamboo.postService.common.helper.DocsTrasformer;
 import com.bamboo.postService.common.helper.PostServiceHelper;
 import com.bamboo.postService.common.response.RoleResponse;
 import com.bamboo.postService.dto.common.AuthorSummaryV1Dto;
@@ -12,6 +13,7 @@ import com.bamboo.postService.dto.doc.DocHomeDto;
 import com.bamboo.postService.dto.doc.DocPageAccessView;
 import com.bamboo.postService.entity.Docs;
 import com.bamboo.postService.entity.DocsMember;
+import com.bamboo.postService.entity.Pages;
 import com.bamboo.postService.entity.Tags;
 import com.bamboo.postService.exception.RoleNotFoundException;
 import com.bamboo.postService.policy.PostAccessPolicy;
@@ -66,6 +68,15 @@ public class DocsQueryService {
                 docs.getVisibility(), docs.getStatus(), resolveDocsRole(id, userId));
 
         Set<String> tags = docs.getTags().stream().map(Tags::getTag).collect(Collectors.toSet());
+        List<Pages> pages = pageRepository.findAllByDocId(id);
+        List<com.bamboo.postService.common.model.PageNode> hydratedTree =
+                DocsTrasformer.hydrateTreeContent(docs.getTree(), pages);
+        String overviewContent =
+                pages.stream()
+                        .filter(page -> page.getPageId().equals(id))
+                        .map(Pages::getContent)
+                        .findFirst()
+                        .orElse(docs.getContent());
 
         DocDetailV1Dto response =
                 new DocDetailV1Dto(
@@ -73,13 +84,13 @@ public class DocsQueryService {
                         docs.getTitle(),
                         docs.getCoverUrl(),
                         docs.getDescription(),
-                        docs.getContent(),
+                        overviewContent,
                         tags,
                         docs.getCreatedAt(),
                         docs.getVisibility(),
                         docs.getStatus(),
-                        docs.getTree(),
-                        PostServiceHelper.authorMapper(docs.getAuthorSnapshot()));
+                        hydratedTree,
+                        PostServiceHelper.authorMapper(docs.getAuthorProfile()));
         return response;
     }
 

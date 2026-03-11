@@ -131,7 +131,7 @@ public class BlogQueryService {
                 blog.getCreatedAt(),
                 blog.getVisibility(),
                 blog.getStatus(),
-                PostServiceHelper.authorMapper(blog.getAuthorSnapshot()),
+                PostServiceHelper.authorMapper(blog.getAuthorProfile()),
                 collaborators);
     }
 

@@ -6,7 +6,6 @@ import com.bamboo.postService.common.model.PageNode;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -18,6 +17,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
@@ -44,7 +44,7 @@ import java.util.UUID;
 @Table(
         name = "docs",
         indexes = {
-            @Index(name = "idx_owner_id", columnList = "authorId"),
+            @Index(name = "idx_owner_id", columnList = "author_id"),
             @Index(name = "idx_created_id", columnList = "createdAt")
         })
 public class Docs {
@@ -80,7 +80,9 @@ public class Docs {
             inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private Set<Tags> tags = new HashSet<>();
 
-    @Embedded private AuthorSnapshot authorSnapshot;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "author_id", nullable = false)
+    private AuthorProfileProjection authorProfile;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

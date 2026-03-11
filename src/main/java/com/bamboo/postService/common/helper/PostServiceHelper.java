@@ -4,7 +4,7 @@ import com.bamboo.postService.dto.blog.BlogPageBase;
 import com.bamboo.postService.dto.blog.BlogFeedItemV1Dto;
 import com.bamboo.postService.dto.blog.BlogTagView;
 import com.bamboo.postService.dto.common.AuthorSummaryV1Dto;
-import com.bamboo.postService.entity.AuthorSnapshot;
+import com.bamboo.postService.entity.AuthorProfileProjection;
 import com.bamboo.postService.entity.BlogMember;
 
 import java.util.Collections;
@@ -28,9 +28,12 @@ public class PostServiceHelper {
                                                 BlogTagView::getTag, Collectors.toList())));
             };
 
-    public static AuthorSummaryV1Dto authorMapper(AuthorSnapshot snapshot) {
+    public static AuthorSummaryV1Dto authorMapper(AuthorProfileProjection projection) {
         return new AuthorSummaryV1Dto(
-                snapshot.getId(), snapshot.getName(), snapshot.getHandle(), snapshot.getAvatarUrl());
+                projection.getId(),
+                projection.getName(),
+                projection.getHandle(),
+                projection.getAvatarUrl());
     }
 
     public static AuthorSummaryV1Dto authorMapper(

@@ -6,7 +6,7 @@ import com.bamboo.postService.common.enums.Visibility;
 import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.dto.feign.UserMetaDto;
-import com.bamboo.postService.entity.AuthorSnapshot;
+import com.bamboo.postService.entity.AuthorProfileProjection;
 import com.bamboo.postService.entity.Blog;
 import com.bamboo.postService.entity.BlogMember;
 import com.bamboo.postService.entity.Tags;
@@ -38,6 +38,7 @@ public class BlogCommandService {
     private final BlogRoleRepository blogRoleRepository;
     private final UserServiceClient userServiceClient;
     private final PostAccessPolicy postAccessPolicy;
+    private final AuthorProjectionService authorProjectionService;
 
     public BlogCommandService(
             BlogRepository blogRepository,
@@ -45,13 +46,15 @@ public class BlogCommandService {
             BlogContentRepository blogContentRepository,
             BlogRoleRepository blogRoleRepository,
             UserServiceClient userServiceClient,
-            PostAccessPolicy postAccessPolicy) {
+            PostAccessPolicy postAccessPolicy,
+            AuthorProjectionService authorProjectionService) {
         this.blogRepository = blogRepository;
         this.tagRepository = tagRepository;
         this.blogContentRepository = blogContentRepository;
         this.blogRoleRepository = blogRoleRepository;
         this.userServiceClient = userServiceClient;
         this.postAccessPolicy = postAccessPolicy;
+        this.authorProjectionService = authorProjectionService;
     }
 
     @Transactional
@@ -79,15 +82,14 @@ public class BlogCommandService {
     @Transactional
     public Map<String, UUID> save(MetaPostDto blogDto, UUID userId) {
         UserMetaDto actor = resolveUserById(userId);
-        AuthorSnapshot authorSnapshot =
-                new AuthorSnapshot(actor.id(), actor.name(), actor.handle(), actor.coverUrl());
+        AuthorProfileProjection authorProfile = authorProjectionService.upsert(actor);
 
         Blog blog =
                 Blog.builder()
                         .title(blogDto.title())
                         .coverUrl(blogDto.coverUrl())
                         .description(blogDto.description())
-                        .authorSnapshot(authorSnapshot)
+                        .authorProfile(authorProfile)
                         .visibility(Visibility.PRIVATE)
                         .status(PostStatus.DRAFT)
                         .build();
@@ -100,10 +102,10 @@ public class BlogCommandService {
         blogRoleRepository.save(
                 BlogMember.builder()
                         .blogId(blog.getId())
-                        .userId(authorSnapshot.getId())
-                        .userName(authorSnapshot.getName())
-                        .userHandle(authorSnapshot.getHandle())
-                        .userCoverUrl(authorSnapshot.getAvatarUrl())
+                        .userId(authorProfile.getId())
+                        .userName(authorProfile.getName())
+                        .userHandle(authorProfile.getHandle())
+                        .userCoverUrl(authorProfile.getAvatarUrl())
                         .userEmail(actor.email())
                         .role(Roles.OWNER)
                         .build());

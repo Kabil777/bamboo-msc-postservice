@@ -1,24 +1,28 @@
 package com.bamboo.postService.entity;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.Instant;
 import java.util.UUID;
 
-@Embeddable
+@Entity
+@Table(name = "author_profiles")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthorSnapshot {
-
-    @Column(nullable = false, name = "author_id")
-    private UUID id;
+public class AuthorProfileProjection {
+    @Id private UUID id;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -28,4 +32,6 @@ public class AuthorSnapshot {
 
     @Column(length = 255)
     private String avatarUrl;
+
+    @UpdateTimestamp private Instant updatedAt;
 }

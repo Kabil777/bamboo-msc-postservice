@@ -26,13 +26,14 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
                        b.coverUrl AS coverUrl,
                        b.description AS description,
                        b.createdAt AS createdAt,
-                       b.authorSnapshot.id AS authorId,
-                       b.authorSnapshot.name AS authorName,
-                       b.authorSnapshot.handle AS authorHandle,
-                       b.authorSnapshot.avatarUrl AS authorAvatar,
+                       author.id AS authorId,
+                       author.name AS authorName,
+                       author.handle AS authorHandle,
+                       author.avatarUrl AS authorAvatar,
                        b.visibility AS visibility,
                        b.status AS status
                 FROM Blog b
+                JOIN b.authorProfile author
                 WHERE b.visibility = :visibility
                 order by b.createdAt desc
             """)
@@ -47,14 +48,15 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
         b.coverUrl AS coverUrl,
         b.description AS description,
         b.createdAt AS createdAt,
-        b.authorSnapshot.id AS authorId,
-        b.authorSnapshot.name AS authorName,
-        b.authorSnapshot.handle AS authorHandle,
-        b.authorSnapshot.avatarUrl AS authorAvatar,
+        author.id AS authorId,
+        author.name AS authorName,
+        author.handle AS authorHandle,
+        author.avatarUrl AS authorAvatar,
         b.visibility AS visibility,
         b.status AS status
     FROM Blog b
-    WHERE b.authorSnapshot.id = :authorId
+    JOIN b.authorProfile author
+    WHERE author.id = :authorId
       AND b.visibility = :visibility
       AND b.createdAt < :cursor
     ORDER BY b.createdAt DESC
@@ -73,14 +75,15 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
         b.coverUrl AS coverUrl,
         b.description AS description,
         b.createdAt AS createdAt,
-        b.authorSnapshot.id AS authorId,
-        b.authorSnapshot.name AS authorName,
-        b.authorSnapshot.handle AS authorHandle,
-        b.authorSnapshot.avatarUrl AS authorAvatar,
+        author.id AS authorId,
+        author.name AS authorName,
+        author.handle AS authorHandle,
+        author.avatarUrl AS authorAvatar,
         b.visibility AS visibility,
         b.status AS status
     FROM Blog b
-    WHERE b.authorSnapshot.id = :authorId
+    JOIN b.authorProfile author
+    WHERE author.id = :authorId
       AND b.createdAt < :cursor
     ORDER BY b.createdAt DESC
 """)
@@ -95,13 +98,14 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
         b.coverUrl AS coverUrl,
         b.description AS description,
         b.createdAt AS createdAt,
-        b.authorSnapshot.id AS authorId,
-        b.authorSnapshot.name AS authorName,
-        b.authorSnapshot.handle AS authorHandle,
-        b.authorSnapshot.avatarUrl AS authorAvatar,
+        author.id AS authorId,
+        author.name AS authorName,
+        author.handle AS authorHandle,
+        author.avatarUrl AS authorAvatar,
         b.visibility AS visibility,
         b.status AS status
     FROM Blog b
+    JOIN b.authorProfile author
     JOIN BlogMember bm ON bm.blogId = b.id
     WHERE bm.userId = :userId
       AND b.createdAt < :cursor
@@ -117,13 +121,14 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
         b.coverUrl AS coverUrl,
         b.description AS description,
         b.createdAt AS createdAt,
-        b.authorSnapshot.id AS authorId,
-        b.authorSnapshot.name AS authorName,
-        b.authorSnapshot.handle AS authorHandle,
-        b.authorSnapshot.avatarUrl AS authorAvatar,
+        author.id AS authorId,
+        author.name AS authorName,
+        author.handle AS authorHandle,
+        author.avatarUrl AS authorAvatar,
         b.visibility AS visibility,
         b.status AS status
     FROM Blog b
+    JOIN b.authorProfile author
     WHERE b.visibility = :visibility
       AND  b.createdAt < :cursor
                      AND EXISTS (
@@ -145,13 +150,14 @@ public interface BlogRepository extends JpaRepository<Blog, UUID>, JpaSpecificat
                         b.coverUrl AS coverUrl,
                         b.description AS description,
                         b.createdAt AS createdAt,
-                       b.authorSnapshot.id AS authorId,
-                       b.authorSnapshot.name AS authorName,
-                       b.authorSnapshot.handle AS authorHandle,
-                       b.authorSnapshot.avatarUrl AS authorAvatar,
+                       author.id AS authorId,
+                       author.name AS authorName,
+                       author.handle AS authorHandle,
+                       author.avatarUrl AS authorAvatar,
                        b.visibility AS visibility,
                        b.status AS status
                 FROM Blog b
+                JOIN b.authorProfile author
                 WHERE b.visibility = :visibility
                 AND b.createdAt < :cursor
                 Order by b.createdAt DESC

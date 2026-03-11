@@ -5,7 +5,6 @@ import com.bamboo.postService.common.enums.Visibility;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -17,6 +16,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
@@ -42,7 +42,7 @@ import java.util.UUID;
         name = "blogs",
         indexes = {
             @Index(name = "idx_posts_creted_at", columnList = "createdAt"),
-            @Index(name = "idx_author_id", columnList = "authorId")
+            @Index(name = "idx_author_id", columnList = "author_id")
         })
 public class Blog {
 
@@ -66,7 +66,9 @@ public class Blog {
             orphanRemoval = true)
     private BlogContent content;
 
-    @Embedded private AuthorSnapshot authorSnapshot;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "author_id", nullable = false)
+    private AuthorProfileProjection authorProfile;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

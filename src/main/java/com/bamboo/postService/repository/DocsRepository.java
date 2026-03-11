@@ -33,13 +33,14 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
-                     d.authorSnapshot.id as authorId,
-                     d.authorSnapshot.name as authorName,
-                     d.authorSnapshot.handle as authorHandle,
-                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
+                     author.id as authorId,
+                     author.name as authorName,
+                     author.handle as authorHandle,
+                     author.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
+                    join d.authorProfile author
                     where d.visibility = :visibility
                     order by d.createdAt desc
             """)
@@ -54,14 +55,15 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
-                     d.authorSnapshot.id as authorId,
-                     d.authorSnapshot.name as authorName,
-                     d.authorSnapshot.handle as authorHandle,
-                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
+                     author.id as authorId,
+                     author.name as authorName,
+                     author.handle as authorHandle,
+                     author.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
-                    where d.authorSnapshot.id = :authorId
+                    join d.authorProfile author
+                    where author.id = :authorId
                       and d.createdAt < :cursor
                     order by d.createdAt desc
             """)
@@ -78,13 +80,14 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
-                     d.authorSnapshot.id as authorId,
-                     d.authorSnapshot.name as authorName,
-                     d.authorSnapshot.handle as authorHandle,
-                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
+                     author.id as authorId,
+                     author.name as authorName,
+                     author.handle as authorHandle,
+                     author.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
+                    join d.authorProfile author
                     join DocsMember dm on dm.docsId = d.id
                     where dm.userId = :userId
                       and d.createdAt < :cursor
@@ -103,14 +106,15 @@ public interface DocsRepository extends JpaRepository<Docs, UUID> {
                      d.coverUrl as coverUrl ,
                      d.description as description ,
                      d.createdAt as createdAt,
-                     d.authorSnapshot.id as authorId,
-                     d.authorSnapshot.name as authorName,
-                     d.authorSnapshot.handle as authorHandle,
-                     d.authorSnapshot.avatarUrl as authorAvatarUrl,
+                     author.id as authorId,
+                     author.name as authorName,
+                     author.handle as authorHandle,
+                     author.avatarUrl as authorAvatarUrl,
                      d.visibility as visibility,
                      d.status as status
                     from Docs d
-                    where d.authorSnapshot.id = :authorId
+                    join d.authorProfile author
+                    where author.id = :authorId
                       and d.visibility = :visibility
                       and d.createdAt < :cursor
                     order by d.createdAt desc

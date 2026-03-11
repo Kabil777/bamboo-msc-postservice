@@ -43,7 +43,7 @@
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/doc/DocsContentRequest.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/feign/UserMetaDto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/upload/PlainImageUploadResponse.java
-/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/entity/AuthorSnapshot.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/entity/AuthorProfileProjection.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/entity/Blog.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/entity/BlogContent.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/entity/BlogMember.java
@@ -57,6 +57,7 @@
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/exception/UserNotFoundException.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/feign/UserServiceClient.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/policy/PostAccessPolicy.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/AuthorProfileProjectionRepository.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/BlogContentRepository.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/BlogRepository.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/BlogRoleRepository.java
@@ -65,6 +66,7 @@
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/PageRepository.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/TagRepository.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/repository/specification/BlogSpecification.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/service/AuthorProjectionService.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/service/BlogCommandService.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/service/BlogQueryService.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/service/BlogRoleService.java

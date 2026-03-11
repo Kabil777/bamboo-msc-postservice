@@ -1,3 +1,4 @@
+com/bamboo/postService/entity/AuthorProfileProjection$AuthorProfileProjectionBuilder.class
 com/bamboo/postService/entity/Pages.class
 com/bamboo/postService/entity/BlogContent$BlogContentBuilder.class
 com/bamboo/postService/repository/BlogRoleRepository.class
@@ -16,6 +17,7 @@ com/bamboo/postService/dto/common/VisibilityUpdateRequest.class
 com/bamboo/postService/dto/feign/UserMetaDto.class
 com/bamboo/postService/exception/GlobalExceptionHandler.class
 com/bamboo/postService/service/DocsQueryService.class
+com/bamboo/postService/entity/AuthorProfileProjection.class
 com/bamboo/postService/exception/UserNotFoundException.class
 com/bamboo/postService/dto/doc/DocCreateRequestDto.class
 com/bamboo/postService/common/enums/Visibility.class
@@ -38,6 +40,7 @@ com/bamboo/postService/dto/blog/MetaPostDto.class
 com/bamboo/postService/entity/BlogMember$BlogMemberBuilder.class
 com/bamboo/postService/service/BlogCommandService.class
 com/bamboo/postService/common/response/CommonResponse.class
+com/bamboo/postService/repository/AuthorProfileProjectionRepository.class
 com/bamboo/postService/PostServiceApplication.class
 com/bamboo/postService/controller/DocsRoleController.class
 com/bamboo/postService/dto/doc/DocFeedItemV1Dto.class
@@ -59,6 +62,7 @@ com/bamboo/postService/dto/blog/BlogTagView.class
 com/bamboo/postService/common/response/BlogMemberRoleResponse.class
 com/bamboo/postService/dto/doc/DocCursorResponseV1Dto.class
 com/bamboo/postService/exception/RoleNotFoundException.class
+com/bamboo/postService/service/AuthorProjectionService.class
 com/bamboo/postService/controller/InternalServiceController.class
 com/bamboo/postService/dto/blog/BlogDetailV1Dto.class
 com/bamboo/postService/exception/AccessDeniedException.class
@@ -70,9 +74,7 @@ com/bamboo/postService/entity/BlogMember.class
 com/bamboo/postService/repository/TagRepository.class
 com/bamboo/postService/common/response/UpsertRoleRequest.class
 com/bamboo/postService/service/BucketUploadService.class
-com/bamboo/postService/entity/AuthorSnapshot$AuthorSnapshotBuilder.class
 com/bamboo/postService/service/DocsRoleService.class
-com/bamboo/postService/entity/AuthorSnapshot.class
 com/bamboo/postService/common/enums/Roles.class
 com/bamboo/postService/config/BucketConfig.class
 com/bamboo/postService/entity/DocsMember.class
