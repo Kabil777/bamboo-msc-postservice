@@ -21,4 +21,6 @@ public interface DocsRoleRepository extends JpaRepository<DocsMember, UUID> {
     long countByDocsIdAndRole(UUID docsId, Roles role);
 
     List<DocsMember> findAllByDocsId(UUID docsId);
+
+    void deleteAllByDocsId(UUID docsId);
 }

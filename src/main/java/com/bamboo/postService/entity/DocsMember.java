@@ -25,12 +25,12 @@ import java.util.UUID;
         name = "docs_roles",
         uniqueConstraints = {
             @UniqueConstraint(
-                    name = "uq_blog_roles_docs_user",
+                    name = "uq_docs_roles_docs_user",
                     columnNames = {"docsId", "userId"})
         },
         indexes = {
-            @Index(name = "idx_blog_role_blogId", columnList = "blogId"),
-            @Index(name = "idx_blog_role_userId", columnList = "userId")
+            @Index(name = "idx_docs_role_docs_id", columnList = "docsId"),
+            @Index(name = "idx_docs_role_user_id", columnList = "userId")
         })
 public class DocsMember {
     @Id

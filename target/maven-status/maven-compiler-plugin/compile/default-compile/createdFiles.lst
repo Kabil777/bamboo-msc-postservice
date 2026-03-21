@@ -43,6 +43,7 @@ com/bamboo/postService/common/response/CommonResponse.class
 com/bamboo/postService/repository/AuthorProfileProjectionRepository.class
 com/bamboo/postService/PostServiceApplication.class
 com/bamboo/postService/controller/DocsRoleController.class
+com/bamboo/postService/dto/blog/ProfileUpdatedEvent.class
 com/bamboo/postService/dto/doc/DocFeedItemV1Dto.class
 com/bamboo/postService/repository/DocsRepository.class
 com/bamboo/postService/dto/blog/BlogPageBase.class

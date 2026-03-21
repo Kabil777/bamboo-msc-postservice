@@ -4,7 +4,10 @@ import com.bamboo.postService.common.enums.PostStatus;
 import com.bamboo.postService.common.enums.Roles;
 import com.bamboo.postService.common.enums.Visibility;
 import com.bamboo.postService.dto.blog.MetaPostDto;
+import com.bamboo.postService.dto.blog.ProfileUpdatedEvent;
+import com.bamboo.postService.dto.collab.CollabDeleteEvent;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
+import com.bamboo.postService.dto.count.ContentCountEvent;
 import com.bamboo.postService.dto.feign.UserMetaDto;
 import com.bamboo.postService.entity.AuthorProfileProjection;
 import com.bamboo.postService.entity.Blog;
@@ -21,7 +24,13 @@ import com.bamboo.postService.repository.TagRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +48,7 @@ public class BlogCommandService {
     private final UserServiceClient userServiceClient;
     private final PostAccessPolicy postAccessPolicy;
     private final AuthorProjectionService authorProjectionService;
+    private final RabbitTemplate rabbitTemplate;
 
     public BlogCommandService(
             BlogRepository blogRepository,
@@ -47,7 +57,8 @@ public class BlogCommandService {
             BlogRoleRepository blogRoleRepository,
             UserServiceClient userServiceClient,
             PostAccessPolicy postAccessPolicy,
-            AuthorProjectionService authorProjectionService) {
+            AuthorProjectionService authorProjectionService,
+            RabbitTemplate rabbitTemplate) {
         this.blogRepository = blogRepository;
         this.tagRepository = tagRepository;
         this.blogContentRepository = blogContentRepository;
@@ -55,6 +66,7 @@ public class BlogCommandService {
         this.userServiceClient = userServiceClient;
         this.postAccessPolicy = postAccessPolicy;
         this.authorProjectionService = authorProjectionService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Transactional
@@ -62,11 +74,17 @@ public class BlogCommandService {
             UUID userId, UUID blogId, String content, Visibility visibility, PostStatus status) {
         assertCanEdit(blogId, userId);
 
+        if ((visibility != null || status != null) && !StringUtils.hasText(content)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Content is required before visibility/status update");
+        }
+
         blogContentRepository.upsertContent(blogId, content);
         Blog blog =
                 blogRepository
                         .findById(blogId)
                         .orElseThrow(() -> new EntityNotFoundException("Blog does not found !"));
+        Visibility previousVisibility = blog.getVisibility();
         if (visibility != null) {
             blog.setVisibility(visibility);
         }
@@ -76,6 +94,8 @@ public class BlogCommandService {
             blog.setStatus(PostStatus.PUBLISHED);
         }
         blogRepository.save(blog);
+        publishContentCountEvent(
+                blog.getAuthorProfile().getId(), "BLOG", previousVisibility, blog.getVisibility());
         return "ok";
     }
 
@@ -109,6 +129,7 @@ public class BlogCommandService {
                         .userEmail(actor.email())
                         .role(Roles.OWNER)
                         .build());
+        publishContentCountCreate(authorProfile.getId(), "BLOG", blog.getVisibility());
         return Map.of("id", blog.getId());
     }
 
@@ -117,10 +138,17 @@ public class BlogCommandService {
         postAccessPolicy.assertCanManage(
                 resolveBlogRole(blogId, userId), "Only owner can manage blog visibility");
 
+        String content = blogContentRepository.findContentByBlogId(blogId).orElse(null);
+        if (!StringUtils.hasText(content)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cannot change visibility for empty content");
+        }
+
         Blog blog =
                 blogRepository
                         .findById(blogId)
                         .orElseThrow(() -> new EntityNotFoundException("Blog does not found !"));
+        Visibility previousVisibility = blog.getVisibility();
 
         if (request.visibility() != null) {
             blog.setVisibility(request.visibility());
@@ -130,7 +158,14 @@ public class BlogCommandService {
         }
 
         blogRepository.save(blog);
+        publishContentCountEvent(
+                blog.getAuthorProfile().getId(), "BLOG", previousVisibility, blog.getVisibility());
         return "ok";
+    }
+
+    @Transactional
+    public void syncAuthorProfile(ProfileUpdatedEvent event) {
+        authorProjectionService.syncProfile(event);
     }
 
     @Transactional
@@ -142,9 +177,56 @@ public class BlogCommandService {
                 blogRepository
                         .findById(blogId)
                         .orElseThrow(() -> new EntityNotFoundException("Blog does not found !"));
+        UUID authorId = blog.getAuthorProfile().getId();
+        Visibility visibility = blog.getVisibility();
 
         blogRoleRepository.deleteAllByBlogId(blogId);
         blogRepository.delete(blog);
+        publishContentCountDelete(authorId, "BLOG", visibility);
+        publishCollabDeleteEvent("BLOG", blogId);
+    }
+
+    private void publishContentCountCreate(UUID userId, String contentType, Visibility visibility) {
+        publishAfterCommit(new ContentCountEvent(userId, contentType, "CREATED", null, visibility));
+    }
+
+    private void publishContentCountDelete(UUID userId, String contentType, Visibility visibility) {
+        publishAfterCommit(new ContentCountEvent(userId, contentType, "DELETED", visibility, null));
+    }
+
+    private void publishContentCountEvent(
+            UUID userId, String contentType, Visibility oldVisibility, Visibility newVisibility) {
+        if (oldVisibility == null || newVisibility == null || oldVisibility == newVisibility) {
+            return;
+        }
+
+        publishAfterCommit(
+                new ContentCountEvent(
+                        userId, contentType, "VISIBILITY_CHANGED", oldVisibility, newVisibility));
+    }
+
+    private void publishCollabDeleteEvent(String contentType, UUID contentId) {
+        publishAfterCommit(
+                () ->
+                        rabbitTemplate.convertAndSend(
+                                "collab.events",
+                                "collab.document.deleted",
+                                new CollabDeleteEvent(contentType, contentId)));
+    }
+
+    private void publishAfterCommit(ContentCountEvent event) {
+        publishAfterCommit(
+                () -> rabbitTemplate.convertAndSend("content.events", "content.counts", event));
+    }
+
+    private void publishAfterCommit(Runnable publisher) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        publisher.run();
+                    }
+                });
     }
 
     private void assertCanEdit(UUID blogId, UUID userId) {

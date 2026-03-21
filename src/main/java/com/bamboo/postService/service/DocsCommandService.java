@@ -6,8 +6,10 @@ import com.bamboo.postService.common.enums.Visibility;
 import com.bamboo.postService.common.helper.DocsTrasformer;
 import com.bamboo.postService.common.helper.DocsTrasformer.TransformResult;
 import com.bamboo.postService.common.model.PageNode;
+import com.bamboo.postService.dto.collab.CollabDeleteEvent;
 import com.bamboo.postService.dto.blog.MetaPostDto;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
+import com.bamboo.postService.dto.count.ContentCountEvent;
 import com.bamboo.postService.dto.doc.DocCreateRequestDto;
 import com.bamboo.postService.dto.doc.DocPageContentRequest;
 import com.bamboo.postService.dto.doc.DocsContentRequest;
@@ -28,11 +30,14 @@ import com.bamboo.postService.repository.TagRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +56,7 @@ public class DocsCommandService {
     private final UserServiceClient userServiceClient;
     private final PostAccessPolicy postAccessPolicy;
     private final AuthorProjectionService authorProjectionService;
+    private final RabbitTemplate rabbitTemplate;
 
     public DocsCommandService(
             DocsRepository docsRepository,
@@ -59,7 +65,8 @@ public class DocsCommandService {
             DocsRoleRepository docsRoleRepository,
             UserServiceClient userServiceClient,
             PostAccessPolicy postAccessPolicy,
-            AuthorProjectionService authorProjectionService) {
+            AuthorProjectionService authorProjectionService,
+            RabbitTemplate rabbitTemplate) {
         this.docsRepository = docsRepository;
         this.pageRepository = pageRepository;
         this.tagRepository = tagRepository;
@@ -67,6 +74,7 @@ public class DocsCommandService {
         this.userServiceClient = userServiceClient;
         this.postAccessPolicy = postAccessPolicy;
         this.authorProjectionService = authorProjectionService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Transactional
@@ -75,7 +83,6 @@ public class DocsCommandService {
         AuthorProfileProjection authorProfile = authorProjectionService.upsert(actor);
 
         Docs docs = new Docs();
-        docs.setId(UUID.randomUUID());
         docs.setTitle(doc.title());
         docs.setDescription(doc.description());
         docs.setCoverUrl(doc.coverUrl());
@@ -83,6 +90,7 @@ public class DocsCommandService {
         docs.setContent(doc.content());
         docs.setVisibility(Visibility.PRIVATE);
         docs.setStatus(PostStatus.DRAFT);
+        docs.setId(null);
 
         List<Tags> existingTags = tagRepository.findByTagIn(doc.tags());
 
@@ -97,11 +105,13 @@ public class DocsCommandService {
         }
         docs.setTags(new HashSet<>(existingTags));
 
+        docs = docsRepository.saveAndFlush(docs);
         TransformResult result = DocsTrasformer.transform(docs.getId(), doc.pages());
         docs.setTree(result.tree());
         docsRepository.save(docs);
         docsRoleRepository.save(buildOwnerRole(docs.getId(), authorProfile, actor.email()));
         pageRepository.saveAll(result.pages());
+        publishContentCountCreate(authorProfile.getId(), "DOCS", docs.getVisibility());
         return "Docs created successfully !";
     }
 
@@ -109,28 +119,28 @@ public class DocsCommandService {
     public Map<String, UUID> saveDocsMeta(MetaPostDto entity, UUID userId) {
         UserMetaDto actor = resolveUserById(userId);
         AuthorProfileProjection authorProfile = authorProjectionService.upsert(actor);
-        UUID docId = UUID.randomUUID();
-        UUID overviewPageId = docId;
 
         Docs doc =
                 Docs.builder()
-                        .id(docId)
                         .title(entity.title())
                         .coverUrl(entity.coverUrl())
                         .description(entity.description())
                         .authorProfile(authorProfile)
-                        .createdAt(Instant.now())
                         .visibility(Visibility.PRIVATE)
                         .status(PostStatus.DRAFT)
-                        .tree(List.of(new PageNode(overviewPageId, "Overview", "", List.of())))
                         .build();
         List<Tags> existingTags = tagRepository.findByTagIn(entity.tags());
         Set<Tags> tags = new HashSet<>(existingTags);
         doc.setTags(tags);
+        doc.setId(null);
 
+        doc = docsRepository.saveAndFlush(doc);
+        UUID overviewPageId = doc.getId();
+        doc.setTree(List.of(new PageNode(overviewPageId, "Overview", "", List.of())));
         docsRepository.save(doc);
         docsRoleRepository.save(buildOwnerRole(doc.getId(), authorProfile, actor.email()));
         pageRepository.save(new Pages(overviewPageId, doc.getId(), ""));
+        publishContentCountCreate(authorProfile.getId(), "DOCS", doc.getVisibility());
 
         return Map.of("id", doc.getId());
     }
@@ -141,12 +151,13 @@ public class DocsCommandService {
 
         Docs docs =
                 docsRepository
-                        .findById(docsId)
+                        .findByIdForUpdate(docsId)
                         .orElseThrow(
                                 () ->
                                         new EntityNotFoundException(
                                                 "Document with current Id not found"));
 
+        Visibility previousVisibility = docs.getVisibility();
         docs.setTree(request.tree());
         List<PageNode> strippedTree = DocsTrasformer.stripTreeContent(request.tree());
         docs.setTree(strippedTree);
@@ -174,7 +185,14 @@ public class DocsCommandService {
             pageRepository.saveAll(pages);
         }
 
-        docsRepository.save(docs);
+        if ((request.visibility() != null || request.status() != null)
+                && !StringUtils.hasText(docs.getContent())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Content is required before visibility/status update");
+        }
+
+        publishContentCountEvent(
+                docs.getAuthorProfile().getId(), "DOCS", previousVisibility, docs.getVisibility());
 
         return "Docs content saved";
     }
@@ -186,11 +204,17 @@ public class DocsCommandService {
 
         Docs docs =
                 docsRepository
-                        .findById(docsId)
+                        .findByIdForUpdate(docsId)
                         .orElseThrow(
                                 () ->
                                         new EntityNotFoundException(
                                                 "Document with current Id not found"));
+
+        Visibility previousVisibility = docs.getVisibility();
+        if (!StringUtils.hasText(docs.getContent())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cannot change visibility for empty content");
+        }
 
         if (request.visibility() != null) {
             docs.setVisibility(request.visibility());
@@ -199,8 +223,77 @@ public class DocsCommandService {
             docs.setStatus(request.status());
         }
 
-        docsRepository.save(docs);
+        publishContentCountEvent(
+                docs.getAuthorProfile().getId(), "DOCS", previousVisibility, docs.getVisibility());
+
         return "ok";
+    }
+
+    @Transactional
+    public void deleteById(UUID docsId, UUID userId) {
+        postAccessPolicy.assertCanManage(
+                resolveDocsRole(docsId, userId), "Only owner can delete docs");
+
+        Docs docs =
+                docsRepository
+                        .findByIdForUpdate(docsId)
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Document with current Id not found"));
+
+        UUID authorId = docs.getAuthorProfile().getId();
+        Visibility visibility = docs.getVisibility();
+
+        pageRepository.deleteAllByDocId(docsId);
+        docsRoleRepository.deleteAllByDocsId(docsId);
+        docsRepository.delete(docs);
+
+        publishContentCountDelete(authorId, "DOCS", visibility);
+        publishCollabDeleteEvent("DOCUMENT", docsId);
+    }
+
+    private void publishContentCountCreate(UUID userId, String contentType, Visibility visibility) {
+        publishAfterCommit(new ContentCountEvent(userId, contentType, "CREATED", null, visibility));
+    }
+
+    private void publishContentCountDelete(UUID userId, String contentType, Visibility visibility) {
+        publishAfterCommit(new ContentCountEvent(userId, contentType, "DELETED", visibility, null));
+    }
+
+    private void publishContentCountEvent(
+            UUID userId, String contentType, Visibility oldVisibility, Visibility newVisibility) {
+        if (oldVisibility == null || newVisibility == null || oldVisibility == newVisibility) {
+            return;
+        }
+
+        publishAfterCommit(
+                new ContentCountEvent(
+                        userId, contentType, "VISIBILITY_CHANGED", oldVisibility, newVisibility));
+    }
+
+    private void publishCollabDeleteEvent(String contentType, UUID contentId) {
+        publishAfterCommit(
+                () ->
+                        rabbitTemplate.convertAndSend(
+                                "collab.events",
+                                "collab.document.deleted",
+                                new CollabDeleteEvent(contentType, contentId)));
+    }
+
+    private void publishAfterCommit(ContentCountEvent event) {
+        publishAfterCommit(
+                () -> rabbitTemplate.convertAndSend("content.events", "content.counts", event));
+    }
+
+    private void publishAfterCommit(Runnable publisher) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        publisher.run();
+                    }
+                });
     }
 
     private DocsMember buildOwnerRole(

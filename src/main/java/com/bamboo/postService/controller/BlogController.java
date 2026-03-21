@@ -7,6 +7,7 @@ import com.bamboo.postService.dto.blog.BlogDetailV1Dto;
 import com.bamboo.postService.dto.blog.BlogFeedItemV1Dto;
 import com.bamboo.postService.dto.blog.BlogPageDto;
 import com.bamboo.postService.dto.blog.MetaPostDto;
+import com.bamboo.postService.dto.blog.ProfileUpdatedEvent;
 import com.bamboo.postService.dto.common.VisibilityUpdateRequest;
 import com.bamboo.postService.service.BlogCommandService;
 import com.bamboo.postService.service.BlogQueryService;
@@ -15,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -153,5 +155,10 @@ public class BlogController {
         return ResponseEntity.ok(
                 new CommonResponse<>(
                         HttpStatus.OK.value(), "Blog deleted successfully", Instant.now()));
+    }
+
+    @RabbitListener(queues = "queue.user.profile.updated")
+    public void syncAuthorProfile(ProfileUpdatedEvent event) {
+        blogCommandService.syncAuthorProfile(event);
     }
 }

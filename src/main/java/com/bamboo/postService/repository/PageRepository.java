@@ -31,4 +31,6 @@ public interface PageRepository extends JpaRepository<Pages, UUID> {
             @Param("pageId") UUID pageId, @Param("docId") UUID docId);
 
     List<Pages> findAllByDocId(UUID docId);
+
+    void deleteAllByDocId(UUID docId);
 }

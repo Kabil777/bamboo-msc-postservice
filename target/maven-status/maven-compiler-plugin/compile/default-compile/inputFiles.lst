@@ -15,6 +15,7 @@
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/common/response/UpdateRoleRequest.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/common/response/UpsertRoleRequest.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/config/BucketConfig.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/config/RabbitMqConfig.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/controller/BlogController.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/controller/BlogRoleController.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/controller/DocsController.java
@@ -29,9 +30,12 @@
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/BlogPageDto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/BlogTagView.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/MetaPostDto.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/ProfileUpdatedEvent.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/blog/TagNameView.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/collab/CollabDeleteEvent.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/common/AuthorSummaryV1Dto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/common/VisibilityUpdateRequest.java
+/home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/count/ContentCountEvent.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/doc/DocCreateRequestDto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/doc/DocCursorResponseV1Dto.java
 /home/kabil/personal/projects/msc/bamboo-repo/bamboo-msc-postservice/src/main/java/com/bamboo/postService/dto/doc/DocDetailV1Dto.java
