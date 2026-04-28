@@ -129,12 +129,13 @@ public class CommentQueryService {
             return authorMap;
         }
 
-        for (UUID missingAuthorId : missingAuthorIds) {
-            UserMetaDto user = userServiceClient.getUserById(missingAuthorId);
+        List<UserMetaDto> users = userServiceClient.getUsersByIds(missingAuthorIds.stream().toList());
+        for (UserMetaDto user : users) {
             authorProjectionService.upsert(user);
         }
 
         return authorProfileProjectionRepository.findAllById(authorIds).stream()
+                .filter(this::hasUsableAuthorSnapshot)
                 .collect(
                         Collectors.toMap(
                                 AuthorProfileProjection::getId,
@@ -148,10 +149,7 @@ public class CommentQueryService {
             return author;
         }
 
-        UserMetaDto user = userServiceClient.getUserById(userId);
-        authorProjectionService.upsert(user);
-        return PostServiceHelper.authorMapper(
-                user.id(), user.name(), user.handle(), user.coverUrl());
+        return new AuthorSummaryV1Dto(userId, "Unknown", "unknown", null);
     }
 
     private boolean hasUsableAuthorSnapshot(AuthorProfileProjection projection) {

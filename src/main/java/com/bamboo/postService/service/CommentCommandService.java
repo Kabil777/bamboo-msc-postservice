@@ -9,7 +9,10 @@ import com.bamboo.postService.feign.UserServiceClient;
 import com.bamboo.postService.repository.AuthorProfileProjectionRepository;
 import com.bamboo.postService.repository.CommentRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 
@@ -18,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class CommentCommandService {
 
     private final CommentRepository commentRepository;
@@ -84,6 +88,11 @@ public class CommentCommandService {
 
             Comment parentComment = commentRepository.findById(parentCommentId).orElse(null);
             if (parentComment == null || !request.room().equals(parentComment.getRoom())) {
+                log.warn(
+                        "comment reply delete rejected: parent missing or room mismatch, room={}, parentCommentId={}, userId={}",
+                        request.room(),
+                        parentCommentId,
+                        request.userId());
                 return;
             }
 
@@ -98,10 +107,23 @@ public class CommentCommandService {
                             .findFirst()
                             .orElse(null);
             if (replyToDelete == null) {
+                log.warn(
+                        "comment reply delete rejected: reply missing, room={}, parentCommentId={}, replyId={}, userId={}",
+                        request.room(),
+                        parentCommentId,
+                        replyId,
+                        request.userId());
                 return;
             }
 
             if (!replyToDelete.userId().equals(request.userId())) {
+                log.warn(
+                        "comment reply delete rejected: unauthorized, room={}, parentCommentId={}, replyId={}, ownerUserId={}, actorUserId={}",
+                        request.room(),
+                        parentCommentId,
+                        replyId,
+                        replyToDelete.userId(),
+                        request.userId());
                 return;
             }
 
@@ -113,10 +135,21 @@ public class CommentCommandService {
 
         Comment comment = commentRepository.findById(request.commentId()).orElse(null);
         if (comment == null || !request.room().equals(comment.getRoom())) {
+            log.warn(
+                    "comment delete rejected: comment missing or room mismatch, room={}, commentId={}, userId={}",
+                    request.room(),
+                    request.commentId(),
+                    request.userId());
             return;
         }
 
         if (!comment.getUserId().equals(request.userId())) {
+            log.warn(
+                    "comment delete rejected: unauthorized, room={}, commentId={}, ownerUserId={}, actorUserId={}",
+                    request.room(),
+                    request.commentId(),
+                    comment.getUserId(),
+                    request.userId());
             return;
         }
 
